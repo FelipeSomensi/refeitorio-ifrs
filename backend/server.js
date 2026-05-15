@@ -14,7 +14,7 @@ app.use(cors());
 const PORT = process.env.PORT || 3000;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 
-// rota inicial
+// ROTA INICIAL
 app.get("/", (_, res) => {
   return res.json({
     message: "API funcionando",
@@ -37,6 +37,7 @@ app.post("/login", (req, res) => {
     {
       id: user.id,
       login: user.login,
+      type: user.type,
     },
 
     PRIVATE_KEY,
@@ -51,7 +52,7 @@ app.post("/login", (req, res) => {
   });
 });
 
-// MIDDLEWARE
+// MIDDLEWARE TOKEN
 const verifyToken = (req, res, next) => {
   const { authorization } = req.headers;
 
@@ -76,10 +77,23 @@ const verifyToken = (req, res, next) => {
   }
 };
 
+// MIDDLEWARE TIPO
+const verifyServidor = (req, res, next) => {
+  console.log("Verificando servidor");
+  if (req.user.type !== "servidor") {
+    return res.status(403).json({
+      error: "Acesso permitido apenas para servidores",
+    });
+  }
+
+  next();
+};
+
 // ROTA PROTEGIDA
 app.get(
   "/dashboard",
   verifyToken,
+  verifyServidor,
 
   (req, res) => {
     return res.json({
@@ -89,5 +103,5 @@ app.get(
 );
 
 app.listen(PORT, () => {
-  console.log("Servidor rodando");
+  console.log(`Servidor rodando na porta ${PORT}`);
 });

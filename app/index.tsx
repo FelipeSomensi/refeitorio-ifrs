@@ -31,7 +31,7 @@ export default function Index() {
 
       if (!resposta.ok) {
         Alert.alert("Erro", dados.error);
-
+        console.log("Senha incorreta");
         return;
       }
 
@@ -68,7 +68,7 @@ export default function Index() {
       }
 
       Alert.alert("Dashboard", dados.message);
-      console.log("Dashboard");
+      console.log("Dashboard Acessado");
     } catch (e) {
       Alert.alert("Erro", "Falha na requisição");
       console.log("Falha na requisição");
