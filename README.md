@@ -1,3 +1,7 @@
+
+Necessario subir um servidor node em um terminal - node backend/server.js
+Em outro terminar o front - npx expo start
+
 # Welcome to your Expo app 👋
 
 This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
