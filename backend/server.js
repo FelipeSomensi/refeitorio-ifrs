@@ -5,6 +5,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 
 const users = require("./users");
+const cardapios = require("./cardapios");
 
 const app = express();
 
@@ -13,6 +14,44 @@ app.use(cors());
 
 const PORT = process.env.PORT || 3000;
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
+
+// MIDDLEWARE TOKEN
+const verifyToken = (req, res, next) => {
+  const { authorization } = req.headers;
+
+  const token = authorization && authorization.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).json({
+      error: "Token não enviado",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, PRIVATE_KEY);
+
+    req.user = decoded;
+
+    next();
+  } catch (e) {
+    return res.status(401).json({
+      error: "Token inválido",
+    });
+  }
+};
+
+// MIDDLEWARE TIPO
+const verifyServidor = (req, res, next) => {
+  console.log("Verificando servidor");
+
+  if (req.user.type !== "servidor") {
+    return res.status(403).json({
+      error: "Acesso permitido apenas para servidores",
+    });
+  }
+
+  next();
+};
 
 // ROTA INICIAL
 app.get("/", (_, res) => {
@@ -52,44 +91,17 @@ app.post("/login", (req, res) => {
   });
 });
 
-// MIDDLEWARE TOKEN
-const verifyToken = (req, res, next) => {
-  const { authorization } = req.headers;
+// CARDÁPIO
+app.get(
+  "/cardapio",
+  verifyToken,
 
-  const token = authorization && authorization.split(" ")[1];
+  (req, res) => {
+    return res.json(cardapios);
+  },
+);
 
-  if (!token) {
-    return res.status(401).json({
-      error: "Token não enviado",
-    });
-  }
-
-  try {
-    const decoded = jwt.verify(token, PRIVATE_KEY);
-
-    req.user = decoded;
-
-    next();
-  } catch (e) {
-    return res.status(401).json({
-      error: "Token inválido",
-    });
-  }
-};
-
-// MIDDLEWARE TIPO
-const verifyServidor = (req, res, next) => {
-  console.log("Verificando servidor");
-  if (req.user.type !== "servidor") {
-    return res.status(403).json({
-      error: "Acesso permitido apenas para servidores",
-    });
-  }
-
-  next();
-};
-
-// ROTA PROTEGIDA
+// DASHBOARD  //remover
 app.get(
   "/dashboard",
   verifyToken,

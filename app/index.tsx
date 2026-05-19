@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import { useState } from "react";
 
 import { Alert, Button, Text, TextInput, View } from "react-native";
@@ -37,41 +38,11 @@ export default function Index() {
 
       await AsyncStorage.setItem("token", dados.token);
 
-      Alert.alert("Sucesso", "Login realizado");
       console.log("Login Realizado");
+      router.push("/menu");
     } catch (e) {
       Alert.alert("Erro", "Não foi possível conectar");
       console.log("Não foi possível conectar");
-    }
-  }
-
-  async function acessarDashboard() {
-    const token = await AsyncStorage.getItem("token");
-
-    try {
-      const resposta = await fetch(
-        "http://localhost:3000/dashboard",
-
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      );
-
-      const dados = await resposta.json();
-
-      if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
-
-        return;
-      }
-
-      Alert.alert("Dashboard", dados.message);
-      console.log("Dashboard Acessado");
-    } catch (e) {
-      Alert.alert("Erro", "Falha na requisição");
-      console.log("Falha na requisição");
     }
   }
 
@@ -89,8 +60,6 @@ export default function Index() {
       />
 
       <Button title="Entrar" onPress={fazerLogin} />
-
-      <Button title="Dashboard" onPress={acessarDashboard} />
     </View>
   );
 }
