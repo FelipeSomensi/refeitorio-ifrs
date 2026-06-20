@@ -19,4 +19,11 @@ module.exports = [
 
     itens: ["Sopa", "Pão", "Fruta"],
   },
+
+  {
+    dia: "2026-05-31",
+    tipo: "Jantar",
+
+    itens: ["Sopa", "Pão", "Fruta"],
+  },
 ];
