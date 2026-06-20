@@ -86,7 +86,6 @@ app.post("/cardapio", verifyToken, verifyServidor, (req, res) => {
   );
 
   if (existente !== -1) {
-    // Atualiza se já existe o mesmo dia+tipo
     cardapios[existente] = { dia, tipo, itens };
     return res.json({
       message: "Cardápio atualizado com sucesso",
@@ -114,6 +113,113 @@ app.delete("/cardapio", verifyToken, verifyServidor, (req, res) => {
 
   cardapios.splice(index, 1);
   return res.json({ message: "Cardápio removido com sucesso" });
+});
+
+// ===================== USUÁRIOS =====================
+
+// LISTAR USUÁRIOS (apenas servidor/admin) — nunca retorna a senha
+app.get("/usuarios", verifyToken, verifyServidor, (req, res) => {
+  const usuariosSemSenha = users.map(({ pwd, ...resto }) => resto);
+  return res.json(usuariosSemSenha);
+});
+
+// CADASTRAR USUÁRIO (apenas servidor/admin)
+app.post("/usuarios", verifyToken, verifyServidor, (req, res) => {
+  const { login, pwd, type } = req.body;
+
+  if (!login || !pwd || !type) {
+    return res.status(400).json({
+      error: "Campos obrigatórios: login, pwd, type",
+    });
+  }
+
+  if (type !== "aluno" && type !== "servidor") {
+    return res.status(400).json({
+      error: "type deve ser 'aluno' ou 'servidor'",
+    });
+  }
+
+  const jaExiste = users.find((u) => u.login === login);
+  if (jaExiste) {
+    return res
+      .status(409)
+      .json({ error: "Já existe um usuário com esse login" });
+  }
+
+  const novoId = users.length > 0 ? Math.max(...users.map((u) => u.id)) + 1 : 1;
+
+  const novoUsuario = { id: novoId, login, pwd, type };
+  users.push(novoUsuario);
+
+  const { pwd: _, ...semSenha } = novoUsuario;
+  return res
+    .status(201)
+    .json({ message: "Usuário cadastrado com sucesso", usuario: semSenha });
+});
+
+// EDITAR USUÁRIO (apenas servidor/admin) — não pode editar o próprio usuário logado
+app.put("/usuarios/:id", verifyToken, verifyServidor, (req, res) => {
+  const id = Number(req.params.id);
+  const { login, pwd, type } = req.body;
+
+  if (id === req.user.id) {
+    return res.status(403).json({
+      error: "Você não pode editar seu próprio usuário enquanto estiver logado",
+    });
+  }
+
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: "Usuário não encontrado" });
+  }
+
+  if (type && type !== "aluno" && type !== "servidor") {
+    return res
+      .status(400)
+      .json({ error: "type deve ser 'aluno' ou 'servidor'" });
+  }
+
+  if (login && login !== users[index].login) {
+    const loginEmUso = users.find((u) => u.login === login && u.id !== id);
+    if (loginEmUso) {
+      return res
+        .status(409)
+        .json({ error: "Já existe um usuário com esse login" });
+    }
+  }
+
+  users[index] = {
+    ...users[index],
+    login: login ?? users[index].login,
+    pwd: pwd ?? users[index].pwd,
+    type: type ?? users[index].type,
+  };
+
+  const { pwd: _, ...semSenha } = users[index];
+  return res.json({
+    message: "Usuário atualizado com sucesso",
+    usuario: semSenha,
+  });
+});
+
+// EXCLUIR USUÁRIO (apenas servidor/admin) — não pode excluir o próprio usuário logado
+app.delete("/usuarios/:id", verifyToken, verifyServidor, (req, res) => {
+  const id = Number(req.params.id);
+
+  if (id === req.user.id) {
+    return res.status(403).json({
+      error:
+        "Você não pode excluir seu próprio usuário enquanto estiver logado",
+    });
+  }
+
+  const index = users.findIndex((u) => u.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: "Usuário não encontrado" });
+  }
+
+  users.splice(index, 1);
+  return res.json({ message: "Usuário excluído com sucesso" });
 });
 
 app.listen(PORT, () => {

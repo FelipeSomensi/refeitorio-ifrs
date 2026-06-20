@@ -106,11 +106,16 @@ export default function Menu() {
       />
 
       {userType === "servidor" && (
-        <View style={{ marginTop: 8 }}>
+        <View style={{ marginTop: 8, gap: 10 }}>
           <Button
             title="⚙️ Gerenciar Cardápios (Admin)"
             color="#1565C0"
             onPress={() => router.push("/admin/cardapios")}
+          />
+          <Button
+            title="👤 Gerenciar Usuários (Admin)"
+            color="#5E35B1"
+            onPress={() => router.push("/admin/usuarios")}
           />
         </View>
       )}
