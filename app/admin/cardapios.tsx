@@ -1,14 +1,21 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
-    Alert,
-    Button,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  Button,
+  Modal,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import {
+  formatarDataBR,
+  gerarDiasUteis,
+  gerarSemanasDoAno,
+  semanaAtual,
+} from "../utils/semanas";
 
 type Cardapio = {
   dia: string;
@@ -22,6 +29,12 @@ export default function AdminCardapios() {
   const [tipo, setTipo] = useState("");
   const [itensTexto, setItensTexto] = useState(""); // itens separados por vírgula
   const [loading, setLoading] = useState(false);
+
+  // navegação de ano/semana para a LISTAGEM de cardápios cadastrados
+  const padrao = semanaAtual();
+  const [ano, setAno] = useState(padrao.ano);
+  const [numeroSemana, setNumeroSemana] = useState(padrao.numeroSemana);
+  const [modalSemanaAberto, setModalSemanaAberto] = useState(false);
 
   async function carregarCardapios() {
     const token = await AsyncStorage.getItem("token");
@@ -126,6 +139,47 @@ export default function AdminCardapios() {
     );
   }
 
+  const semanasDoAno = useMemo(() => gerarSemanasDoAno(ano), [ano]);
+
+  const semanaSelecionada = useMemo(
+    () =>
+      semanasDoAno.find((s) => s.numero === numeroSemana) ?? semanasDoAno[0],
+    [semanasDoAno, numeroSemana],
+  );
+
+  const diasDaSemana = useMemo(
+    () => (semanaSelecionada ? gerarDiasUteis(semanaSelecionada.segunda) : []),
+    [semanaSelecionada],
+  );
+
+  const isosDaSemana = useMemo(
+    () => diasDaSemana.map((d) => d.iso),
+    [diasDaSemana],
+  );
+
+  const cardapiosDaSemana = useMemo(
+    () =>
+      [...cardapios]
+        .filter((c) => isosDaSemana.includes(c.dia))
+        .sort((a, b) => a.dia.localeCompare(b.dia)),
+    [cardapios, isosDaSemana],
+  );
+
+  function irParaAno(novoAno: number) {
+    setAno(novoAno);
+    const semanas = gerarSemanasDoAno(novoAno);
+    setNumeroSemana(semanas[0]?.numero ?? 1);
+  }
+
+  function voltarParaHoje() {
+    const atual = semanaAtual();
+    setAno(atual.ano);
+    setNumeroSemana(atual.numeroSemana);
+  }
+
+  const ehSemanaAtual =
+    ano === padrao.ano && numeroSemana === padrao.numeroSemana;
+
   useEffect(() => {
     carregarCardapios();
   }, []);
@@ -179,63 +233,194 @@ export default function AdminCardapios() {
         />
       </View>
 
-      {/* LISTA DE CARDÁPIOS */}
+      {/* NAVEGAÇÃO DE ANO E SEMANA */}
       <Text style={{ fontSize: 18, fontWeight: "600", marginTop: 8 }}>
         Cardápios Cadastrados
       </Text>
 
-      {cardapios.length === 0 ? (
-        <Text style={{ color: "#888" }}>Nenhum cardápio cadastrado.</Text>
+      <View
+        style={{
+          flexDirection: "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          backgroundColor: "#F5F5F5",
+          borderRadius: 10,
+          padding: 10,
+        }}
+      >
+        <TouchableOpacity
+          onPress={() => irParaAno(ano - 1)}
+          style={{ padding: 6 }}
+        >
+          <Text style={{ fontSize: 16 }}>◀</Text>
+        </TouchableOpacity>
+        <Text style={{ fontSize: 16, fontWeight: "bold" }}>{ano}</Text>
+        <TouchableOpacity
+          onPress={() => irParaAno(ano + 1)}
+          style={{ padding: 6 }}
+        >
+          <Text style={{ fontSize: 16 }}>▶</Text>
+        </TouchableOpacity>
+      </View>
+
+      <TouchableOpacity
+        onPress={() => setModalSemanaAberto(true)}
+        style={{
+          borderWidth: 1,
+          borderColor: "#BDBDBD",
+          borderRadius: 10,
+          padding: 14,
+          flexDirection: "row",
+          justifyContent: "space-between",
+          alignItems: "center",
+          backgroundColor: "#fff",
+        }}
+      >
+        <View>
+          <Text style={{ fontWeight: "700", fontSize: 16 }}>
+            Semana {numeroSemana}
+          </Text>
+          {diasDaSemana.length > 0 && (
+            <Text style={{ color: "#777", fontSize: 13 }}>
+              {formatarDataBR(diasDaSemana[0].iso)} a{" "}
+              {formatarDataBR(diasDaSemana[4].iso)}
+            </Text>
+          )}
+        </View>
+        <Text style={{ fontSize: 16 }}>▼</Text>
+      </TouchableOpacity>
+
+      {!ehSemanaAtual && (
+        <TouchableOpacity onPress={voltarParaHoje}>
+          <Text style={{ color: "#2E7D32", fontWeight: "600" }}>
+            ↩ Voltar para semana atual
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      {cardapiosDaSemana.length === 0 ? (
+        <Text style={{ color: "#888" }}>
+          Nenhum cardápio cadastrado para esta semana.
+        </Text>
       ) : (
-        [...cardapios]
-          .sort((a, b) => a.dia.localeCompare(b.dia))
-          .map((item, index) => (
+        cardapiosDaSemana.map((item, index) => (
+          <View
+            key={index}
+            style={{
+              backgroundColor: "#F5F5F5",
+              padding: 14,
+              borderRadius: 10,
+              gap: 4,
+            }}
+          >
             <View
-              key={index}
               style={{
-                backgroundColor: "#F5F5F5",
-                padding: 14,
-                borderRadius: 10,
-                gap: 4,
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
             >
-              <View
+              <View>
+                <Text style={{ fontWeight: "bold", fontSize: 16 }}>
+                  {formatarDataBR(item.dia)}
+                </Text>
+                <Text style={{ color: "#555", marginBottom: 4 }}>
+                  {item.tipo}
+                </Text>
+                {item.itens.map((comida, i) => (
+                  <Text key={i} style={{ color: "#333" }}>
+                    • {comida}
+                  </Text>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                onPress={() => removerCardapio(item)}
                 style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  alignItems: "center",
+                  backgroundColor: "#FFCDD2",
+                  padding: 8,
+                  borderRadius: 8,
                 }}
               >
-                <View>
-                  <Text style={{ fontWeight: "bold", fontSize: 16 }}>
-                    {item.dia}
-                  </Text>
-                  <Text style={{ color: "#555", marginBottom: 4 }}>
-                    {item.tipo}
-                  </Text>
-                  {item.itens.map((comida, i) => (
-                    <Text key={i} style={{ color: "#333" }}>
-                      • {comida}
-                    </Text>
-                  ))}
-                </View>
+                <Text style={{ color: "#C62828", fontWeight: "bold" }}>🗑️</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ))
+      )}
 
+      {/* MODAL COM TODAS AS SEMANAS DO ANO */}
+      <Modal
+        visible={modalSemanaAberto}
+        animationType="slide"
+        onRequestClose={() => setModalSemanaAberto(false)}
+      >
+        <View style={{ flex: 1, paddingTop: 50 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingHorizontal: 20,
+              paddingBottom: 12,
+            }}
+          >
+            <Text style={{ fontSize: 20, fontWeight: "bold" }}>
+              Semanas de {ano}
+            </Text>
+            <TouchableOpacity onPress={() => setModalSemanaAberto(false)}>
+              <Text style={{ fontSize: 16, color: "#1565C0" }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 8 }}>
+            {semanasDoAno.map((s) => {
+              const dias = gerarDiasUteis(s.segunda);
+              const selecionada = s.numero === numeroSemana;
+              const atual =
+                ano === padrao.ano && s.numero === padrao.numeroSemana;
+
+              return (
                 <TouchableOpacity
-                  onPress={() => removerCardapio(item)}
+                  key={s.numero}
+                  onPress={() => {
+                    setNumeroSemana(s.numero);
+                    setModalSemanaAberto(false);
+                  }}
                   style={{
-                    backgroundColor: "#FFCDD2",
-                    padding: 8,
-                    borderRadius: 8,
+                    padding: 14,
+                    borderRadius: 10,
+                    backgroundColor: selecionada ? "#1565C0" : "#F5F5F5",
+                    flexDirection: "row",
+                    justifyContent: "space-between",
+                    alignItems: "center",
                   }}
                 >
-                  <Text style={{ color: "#C62828", fontWeight: "bold" }}>
-                    🗑️
-                  </Text>
+                  <View>
+                    <Text
+                      style={{
+                        fontWeight: "700",
+                        color: selecionada ? "#fff" : "#333",
+                      }}
+                    >
+                      Semana {s.numero} {atual && "• Atual"}
+                    </Text>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: selecionada ? "#E3F2FD" : "#777",
+                      }}
+                    >
+                      {formatarDataBR(dias[0].iso)} a{" "}
+                      {formatarDataBR(dias[4].iso)}
+                    </Text>
+                  </View>
                 </TouchableOpacity>
-              </View>
-            </View>
-          ))
-      )}
+              );
+            })}
+          </ScrollView>
+        </View>
+      </Modal>
     </ScrollView>
   );
 }
