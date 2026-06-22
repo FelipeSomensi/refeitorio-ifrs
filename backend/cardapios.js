@@ -1,29 +1,8 @@
+// Atribuições de modelos de cardápio a dias específicos.
+// O conteúdo real (tipo + itens) está em modelos.js — aqui só vinculamos
+// qual modelo (modeloId) vale para qual dia.
 module.exports = [
-  {
-    dia: "2026-05-18",
-    tipo: "Almoço",
-
-    itens: ["Arroz", "Feijão", "Frango grelhado", "Salada", "Suco"],
-  },
-
-  {
-    dia: "2026-05-19",
-    tipo: "Almoço",
-
-    itens: ["Macarrão", "Feijão", "Carne assada", "Salada", "Refrigerante"],
-  },
-
-  {
-    dia: "2026-05-20",
-    tipo: "Jantar",
-
-    itens: ["Sopa", "Pão", "Fruta"],
-  },
-
-  {
-    dia: "2026-05-31",
-    tipo: "Jantar",
-
-    itens: ["Sopa", "Pão", "Fruta"],
-  },
+  { dia: "2026-06-22", modeloId: 1 }, // Segunda - Almoço (Arroz, Feijão...)
+  { dia: "2026-06-23", modeloId: 2 }, // Terça - Almoço (Macarrão...)
+  { dia: "2026-06-23", modeloId: 3 }, // Terça - Jantar (Sopa...)
 ];

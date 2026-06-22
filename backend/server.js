@@ -5,7 +5,8 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 
 const users = require("./users");
-const cardapios = require("./cardapios");
+const cardapios = require("./cardapios"); // atribuições: { dia, modeloId }
+const modelos = require("./modelos"); // modelos reutilizáveis: { id, tipo, itens }
 
 const app = express();
 
@@ -43,6 +44,18 @@ const verifyServidor = (req, res, next) => {
   next();
 };
 
+// Junta uma atribuição (dia + modeloId) com o conteúdo do modelo
+function montarCardapioCompleto(atribuicao) {
+  const modelo = modelos.find((m) => m.id === atribuicao.modeloId);
+  if (!modelo) return null;
+  return {
+    dia: atribuicao.dia,
+    modeloId: modelo.id,
+    tipo: modelo.tipo,
+    itens: modelo.itens,
+  };
+}
+
 // ROTA INICIAL
 app.get("/", (_, res) => {
   return res.json({ message: "API funcionando" });
@@ -66,53 +79,116 @@ app.post("/login", (req, res) => {
   return res.json({ token, type: user.type });
 });
 
+// ===================== CARDÁPIOS (ATRIBUIÇÕES POR DIA) =====================
+
 // LISTAR CARDÁPIOS (qualquer usuário logado)
+// Mantém o formato { dia, tipo, itens } esperado pelo app, com modeloId extra
 app.get("/cardapio", verifyToken, (req, res) => {
-  return res.json(cardapios);
+  const completos = cardapios
+    .map(montarCardapioCompleto)
+    .filter((c) => c !== null);
+
+  return res.json(completos);
 });
 
-// CADASTRAR CARDÁPIO (apenas servidor/admin)
+// ATRIBUIR um modelo existente (ou recém-criado) a um dia (apenas servidor/admin)
 app.post("/cardapio", verifyToken, verifyServidor, (req, res) => {
-  const { dia, tipo, itens } = req.body;
+  const { dia, modeloId } = req.body;
 
-  if (!dia || !tipo || !itens || !Array.isArray(itens) || itens.length === 0) {
+  if (!dia || !modeloId) {
     return res.status(400).json({
-      error: "Campos obrigatórios: dia (YYYY-MM-DD), tipo, itens (array)",
+      error: "Campos obrigatórios: dia (YYYY-MM-DD), modeloId",
     });
+  }
+
+  const modelo = modelos.find((m) => m.id === Number(modeloId));
+  if (!modelo) {
+    return res.status(404).json({ error: "Modelo de cardápio não encontrado" });
   }
 
   const existente = cardapios.findIndex(
-    (c) => c.dia === dia && c.tipo === tipo,
+    (c) => c.dia === dia && c.modeloId === Number(modeloId),
   );
 
   if (existente !== -1) {
-    cardapios[existente] = { dia, tipo, itens };
-    return res.json({
-      message: "Cardápio atualizado com sucesso",
-      cardapio: cardapios[existente],
+    return res.status(409).json({
+      error: "Este cardápio já está atribuído a este dia",
     });
   }
 
-  const novo = { dia, tipo, itens };
-  cardapios.push(novo);
+  const nova = { dia, modeloId: Number(modeloId) };
+  cardapios.push(nova);
 
-  return res
-    .status(201)
-    .json({ message: "Cardápio cadastrado com sucesso", cardapio: novo });
+  return res.status(201).json({
+    message: "Cardápio atribuído ao dia com sucesso",
+    cardapio: montarCardapioCompleto(nova),
+  });
 });
 
-// DELETAR CARDÁPIO (apenas servidor/admin)
+// REMOVER a atribuição de um modelo a um dia (apenas servidor/admin)
+// Não exclui o modelo, só desvincula do dia.
 app.delete("/cardapio", verifyToken, verifyServidor, (req, res) => {
-  const { dia, tipo } = req.body;
+  const { dia, modeloId } = req.body;
 
-  const index = cardapios.findIndex((c) => c.dia === dia && c.tipo === tipo);
+  const index = cardapios.findIndex(
+    (c) => c.dia === dia && c.modeloId === Number(modeloId),
+  );
 
   if (index === -1) {
-    return res.status(404).json({ error: "Cardápio não encontrado" });
+    return res.status(404).json({ error: "Atribuição não encontrada" });
   }
 
   cardapios.splice(index, 1);
-  return res.json({ message: "Cardápio removido com sucesso" });
+  return res.json({ message: "Cardápio removido do dia com sucesso" });
+});
+
+// ===================== MODELOS DE CARDÁPIO (REUTILIZÁVEIS) =====================
+
+// LISTAR MODELOS (apenas servidor/admin) — usado na hora de "reutilizar" um cardápio
+app.get("/modelos", verifyToken, verifyServidor, (req, res) => {
+  return res.json(modelos);
+});
+
+// CRIAR NOVO MODELO (apenas servidor/admin) — não atribui a nenhum dia ainda
+app.post("/modelos", verifyToken, verifyServidor, (req, res) => {
+  const { tipo, itens } = req.body;
+
+  if (!tipo || !itens || !Array.isArray(itens) || itens.length === 0) {
+    return res.status(400).json({
+      error: "Campos obrigatórios: tipo, itens (array)",
+    });
+  }
+
+  const novoId =
+    modelos.length > 0 ? Math.max(...modelos.map((m) => m.id)) + 1 : 1;
+  const novoModelo = { id: novoId, tipo, itens };
+  modelos.push(novoModelo);
+
+  return res.status(201).json({
+    message: "Modelo de cardápio criado com sucesso",
+    modelo: novoModelo,
+  });
+});
+
+// EXCLUIR MODELO (apenas servidor/admin) — bloqueia se estiver em uso em algum dia
+app.delete("/modelos/:id", verifyToken, verifyServidor, (req, res) => {
+  const id = Number(req.params.id);
+
+  const emUso = cardapios.some((c) => c.modeloId === id);
+  if (emUso) {
+    return res.status(409).json({
+      error:
+        "Este modelo está atribuído a um ou mais dias. Remova as atribuições antes de excluir.",
+    });
+  }
+
+  const index = modelos.findIndex((m) => m.id === id);
+  if (index === -1) {
+    return res.status(404).json({ error: "Modelo não encontrado" });
+  }
+
+  modelos.splice(index, 1);
+  return res.json({ message: "Modelo excluído com sucesso" });
 });
 
 // ===================== USUÁRIOS =====================

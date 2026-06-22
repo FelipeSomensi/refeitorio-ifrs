@@ -17,20 +17,40 @@ import {
   semanaAtual,
 } from "../utils/semanas";
 
-type Cardapio = {
+type Modelo = {
+  id: number;
+  tipo: string;
+  itens: string[];
+};
+
+type CardapioCompleto = {
   dia: string;
+  modeloId: number;
   tipo: string;
   itens: string[];
 };
 
 export default function AdminCardapios() {
-  const [cardapios, setCardapios] = useState<Cardapio[]>([]);
+  const [cardapios, setCardapios] = useState<CardapioCompleto[]>([]);
+  const [modelos, setModelos] = useState<Modelo[]>([]);
+
+  // --- Formulário de atribuição ---
   const [dia, setDia] = useState("");
-  const [tipo, setTipo] = useState("");
-  const [itensTexto, setItensTexto] = useState(""); // itens separados por vírgula
+  const [modo, setModo] = useState<"existente" | "novo">("existente");
+
+  // modo "existente"
+  const [modeloSelecionadoId, setModeloSelecionadoId] = useState<number | null>(
+    null,
+  );
+  const [modalModeloAberto, setModalModeloAberto] = useState(false);
+
+  // modo "novo"
+  const [novoTipo, setNovoTipo] = useState("");
+  const [novosItensTexto, setNovosItensTexto] = useState("");
+
   const [loading, setLoading] = useState(false);
 
-  // navegação de ano/semana para a LISTAGEM de cardápios cadastrados
+  // navegação de ano/semana para a LISTAGEM
   const padrao = semanaAtual();
   const [ano, setAno] = useState(padrao.ano);
   const [numeroSemana, setNumeroSemana] = useState(padrao.numeroSemana);
@@ -49,25 +69,26 @@ export default function AdminCardapios() {
     }
   }
 
-  async function cadastrarCardapio() {
-    if (!dia || !tipo || !itensTexto.trim()) {
-      Alert.alert("Atenção", "Preencha todos os campos.");
+  async function carregarModelos() {
+    const token = await AsyncStorage.getItem("token");
+    try {
+      const resposta = await fetch("http://localhost:3000/modelos", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const dados = await resposta.json();
+      if (resposta.ok) setModelos(dados);
+    } catch (e) {
+      Alert.alert("Erro", "Não foi possível carregar os modelos de cardápio");
+    }
+  }
+
+  async function atribuirCardapio() {
+    if (!dia) {
+      Alert.alert("Atenção", "Informe o dia.");
       return;
     }
-
-    // Valida formato da data
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) {
       Alert.alert("Atenção", "Data deve estar no formato AAAA-MM-DD");
-      return;
-    }
-
-    const itens = itensTexto
-      .split(",")
-      .map((i) => i.trim())
-      .filter((i) => i.length > 0);
-
-    if (itens.length === 0) {
-      Alert.alert("Atenção", "Informe ao menos um item.");
       return;
     }
 
@@ -75,38 +96,92 @@ export default function AdminCardapios() {
     setLoading(true);
 
     try {
-      const resposta = await fetch("http://localhost:3000/cardapio", {
+      let modeloId = modeloSelecionadoId;
+
+      // MODO "NOVO": cria o modelo primeiro
+      if (modo === "novo") {
+        if (!novoTipo.trim() || !novosItensTexto.trim()) {
+          Alert.alert("Atenção", "Preencha tipo e itens do novo cardápio.");
+          setLoading(false);
+          return;
+        }
+
+        const itens = novosItensTexto
+          .split(",")
+          .map((i) => i.trim())
+          .filter((i) => i.length > 0);
+
+        if (itens.length === 0) {
+          Alert.alert("Atenção", "Informe ao menos um item.");
+          setLoading(false);
+          return;
+        }
+
+        const respostaModelo = await fetch("http://localhost:3000/modelos", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ tipo: novoTipo, itens }),
+        });
+
+        const dadosModelo = await respostaModelo.json();
+
+        if (!respostaModelo.ok) {
+          Alert.alert("Erro", dadosModelo.error);
+          setLoading(false);
+          return;
+        }
+
+        modeloId = dadosModelo.modelo.id;
+        setModelos((prev) => [...prev, dadosModelo.modelo]);
+      }
+
+      // MODO "EXISTENTE": precisa ter selecionado um modelo
+      if (modo === "existente" && !modeloId) {
+        Alert.alert(
+          "Atenção",
+          "Selecione um cardápio existente para reutilizar.",
+        );
+        setLoading(false);
+        return;
+      }
+
+      // Atribui o modelo (novo ou existente) ao dia
+      const respostaAtribuicao = await fetch("http://localhost:3000/cardapio", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ dia, tipo, itens }),
+        body: JSON.stringify({ dia, modeloId }),
       });
 
-      const dados = await resposta.json();
+      const dadosAtribuicao = await respostaAtribuicao.json();
 
-      if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+      if (!respostaAtribuicao.ok) {
+        Alert.alert("Erro", dadosAtribuicao.error);
         return;
       }
 
-      Alert.alert("Sucesso", dados.message);
+      Alert.alert("Sucesso", dadosAtribuicao.message);
       setDia("");
-      setTipo("");
-      setItensTexto("");
+      setModeloSelecionadoId(null);
+      setNovoTipo("");
+      setNovosItensTexto("");
       carregarCardapios();
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível cadastrar o cardápio");
+      Alert.alert("Erro", "Não foi possível atribuir o cardápio");
     } finally {
       setLoading(false);
     }
   }
 
-  async function removerCardapio(item: Cardapio) {
+  async function removerAtribuicao(item: CardapioCompleto) {
     Alert.alert(
       "Confirmar",
-      `Remover cardápio de ${item.dia} (${item.tipo})?`,
+      `Remover "${item.tipo}" do dia ${formatarDataBR(item.dia)}? (o modelo continua salvo para reutilizar depois)`,
       [
         { text: "Cancelar", style: "cancel" },
         {
@@ -121,7 +196,10 @@ export default function AdminCardapios() {
                   "Content-Type": "application/json",
                   Authorization: `Bearer ${token}`,
                 },
-                body: JSON.stringify({ dia: item.dia, tipo: item.tipo }),
+                body: JSON.stringify({
+                  dia: item.dia,
+                  modeloId: item.modeloId,
+                }),
               });
               const dados = await resposta.json();
               if (resposta.ok) {
@@ -165,6 +243,11 @@ export default function AdminCardapios() {
     [cardapios, isosDaSemana],
   );
 
+  const modeloSelecionado = useMemo(
+    () => modelos.find((m) => m.id === modeloSelecionadoId) ?? null,
+    [modelos, modeloSelecionadoId],
+  );
+
   function irParaAno(novoAno: number) {
     setAno(novoAno);
     const semanas = gerarSemanasDoAno(novoAno);
@@ -182,6 +265,7 @@ export default function AdminCardapios() {
 
   useEffect(() => {
     carregarCardapios();
+    carregarModelos();
   }, []);
 
   return (
@@ -190,17 +274,17 @@ export default function AdminCardapios() {
         ⚙️ Gerenciar Cardápios
       </Text>
 
-      {/* FORMULÁRIO DE CADASTRO */}
+      {/* FORMULÁRIO DE ATRIBUIÇÃO */}
       <View
         style={{
           backgroundColor: "#E3F2FD",
           padding: 16,
           borderRadius: 12,
-          gap: 10,
+          gap: 12,
         }}
       >
         <Text style={{ fontSize: 18, fontWeight: "600" }}>
-          Cadastrar Cardápio
+          Atribuir Cardápio a um Dia
         </Text>
 
         <TextInput
@@ -210,24 +294,94 @@ export default function AdminCardapios() {
           style={inputStyle}
         />
 
-        <TextInput
-          placeholder="Tipo (ex: Almoço, Jantar)"
-          value={tipo}
-          onChangeText={setTipo}
-          style={inputStyle}
-        />
+        {/* TOGGLE: existente vs novo */}
+        <View style={{ flexDirection: "row", gap: 10 }}>
+          <TouchableOpacity
+            onPress={() => setModo("existente")}
+            style={{
+              flex: 1,
+              padding: 10,
+              borderRadius: 8,
+              backgroundColor: modo === "existente" ? "#1565C0" : "#fff",
+              borderWidth: 1,
+              borderColor: "#1565C0",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: modo === "existente" ? "#fff" : "#1565C0" }}>
+              Reutilizar existente
+            </Text>
+          </TouchableOpacity>
 
-        <TextInput
-          placeholder="Itens separados por vírgula (ex: Arroz, Feijão, Frango)"
-          value={itensTexto}
-          onChangeText={setItensTexto}
-          multiline
-          style={[inputStyle, { minHeight: 80, textAlignVertical: "top" }]}
-        />
+          <TouchableOpacity
+            onPress={() => setModo("novo")}
+            style={{
+              flex: 1,
+              padding: 10,
+              borderRadius: 8,
+              backgroundColor: modo === "novo" ? "#1565C0" : "#fff",
+              borderWidth: 1,
+              borderColor: "#1565C0",
+              alignItems: "center",
+            }}
+          >
+            <Text style={{ color: modo === "novo" ? "#fff" : "#1565C0" }}>
+              Criar novo
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* MODO EXISTENTE: seletor de modelo salvo */}
+        {modo === "existente" && (
+          <TouchableOpacity
+            onPress={() => setModalModeloAberto(true)}
+            style={{
+              borderWidth: 1,
+              borderColor: "#90CAF9",
+              borderRadius: 8,
+              padding: 12,
+              backgroundColor: "#fff",
+            }}
+          >
+            {modeloSelecionado ? (
+              <View>
+                <Text style={{ fontWeight: "600" }}>
+                  {modeloSelecionado.tipo}
+                </Text>
+                <Text style={{ color: "#555", fontSize: 13 }}>
+                  {modeloSelecionado.itens.join(", ")}
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ color: "#888" }}>
+                Toque para escolher um cardápio salvo...
+              </Text>
+            )}
+          </TouchableOpacity>
+        )}
+
+        {/* MODO NOVO: campos de criação */}
+        {modo === "novo" && (
+          <>
+            <TextInput
+              placeholder="Tipo (ex: Almoço, Jantar)"
+              value={novoTipo}
+              onChangeText={setNovoTipo}
+              style={inputStyle}
+            />
+            <TextInput
+              placeholder="Itens separados por vírgula (ex: Arroz, Feijão, Frango)"
+              value={novosItensTexto}
+              onChangeText={setNovosItensTexto}
+              multiline
+              style={[inputStyle, { minHeight: 80, textAlignVertical: "top" }]}
+            />
+          </>
+        )}
 
         <Button
-          title={loading ? "Salvando..." : "Cadastrar Cardápio"}
-          onPress={cadastrarCardapio}
+          title={loading ? "Salvando..." : "Atribuir Cardápio"}
+          onPress={atribuirCardapio}
           disabled={loading}
           color="#1565C0"
         />
@@ -300,7 +454,7 @@ export default function AdminCardapios() {
 
       {cardapiosDaSemana.length === 0 ? (
         <Text style={{ color: "#888" }}>
-          Nenhum cardápio cadastrado para esta semana.
+          Nenhum cardápio atribuído para esta semana.
         </Text>
       ) : (
         cardapiosDaSemana.map((item, index) => (
@@ -320,7 +474,7 @@ export default function AdminCardapios() {
                 alignItems: "center",
               }}
             >
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={{ fontWeight: "bold", fontSize: 16 }}>
                   {formatarDataBR(item.dia)}
                 </Text>
@@ -335,7 +489,7 @@ export default function AdminCardapios() {
               </View>
 
               <TouchableOpacity
-                onPress={() => removerCardapio(item)}
+                onPress={() => removerAtribuicao(item)}
                 style={{
                   backgroundColor: "#FFCDD2",
                   padding: 8,
@@ -349,7 +503,88 @@ export default function AdminCardapios() {
         ))
       )}
 
-      {/* MODAL COM TODAS AS SEMANAS DO ANO */}
+      {/* MODAL: ESCOLHER MODELO EXISTENTE */}
+      <Modal
+        visible={modalModeloAberto}
+        animationType="slide"
+        onRequestClose={() => setModalModeloAberto(false)}
+      >
+        <View style={{ flex: 1, paddingTop: 50 }}>
+          <View
+            style={{
+              flexDirection: "row",
+              justifyContent: "space-between",
+              alignItems: "center",
+              paddingHorizontal: 20,
+              paddingBottom: 12,
+            }}
+          >
+            <Text style={{ fontSize: 20, fontWeight: "bold" }}>
+              Cardápios Salvos
+            </Text>
+            <TouchableOpacity onPress={() => setModalModeloAberto(false)}>
+              <Text style={{ fontSize: 16, color: "#1565C0" }}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 20, gap: 8 }}>
+            {modelos.length === 0 ? (
+              <Text style={{ color: "#888" }}>
+                Nenhum cardápio salvo ainda. Crie um novo para começar.
+              </Text>
+            ) : (
+              // Agrupa visualmente por tipo (Almoço, Jantar, ...)
+              Object.entries(
+                modelos.reduce<Record<string, Modelo[]>>((grupos, m) => {
+                  if (!grupos[m.tipo]) grupos[m.tipo] = [];
+                  grupos[m.tipo].push(m);
+                  return grupos;
+                }, {}),
+              ).map(([tipo, lista]) => (
+                <View key={tipo} style={{ gap: 8, marginBottom: 12 }}>
+                  <Text
+                    style={{
+                      fontWeight: "700",
+                      fontSize: 15,
+                      color: "#1565C0",
+                    }}
+                  >
+                    {tipo}
+                  </Text>
+                  {lista.map((m) => {
+                    const selecionado = m.id === modeloSelecionadoId;
+                    return (
+                      <TouchableOpacity
+                        key={m.id}
+                        onPress={() => {
+                          setModeloSelecionadoId(m.id);
+                          setModalModeloAberto(false);
+                        }}
+                        style={{
+                          padding: 12,
+                          borderRadius: 8,
+                          backgroundColor: selecionado ? "#1565C0" : "#F5F5F5",
+                        }}
+                      >
+                        <Text
+                          style={{
+                            color: selecionado ? "#fff" : "#333",
+                            fontSize: 13,
+                          }}
+                        >
+                          {m.itens.join(", ")}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))
+            )}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* MODAL: TODAS AS SEMANAS DO ANO */}
       <Modal
         visible={modalSemanaAberto}
         animationType="slide"
