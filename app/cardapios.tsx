@@ -18,8 +18,10 @@ import {
 
 type Cardapio = {
   dia: string; // YYYY-MM-DD
+  modeloId: number;
   tipo: string;
   itens: string[];
+  favorito: boolean;
 };
 
 export default function Cardapios() {
@@ -61,6 +63,51 @@ export default function Cardapios() {
   useEffect(() => {
     carregarCardapios();
   }, []);
+
+  async function alternarFavorito(modeloId: number, favoritoAtual: boolean) {
+    const token = await AsyncStorage.getItem("token");
+
+    // Atualização otimista: reflete na tela antes da resposta do servidor
+    setCardapios((prev) =>
+      prev.map((c) =>
+        c.modeloId === modeloId ? { ...c, favorito: !favoritoAtual } : c,
+      ),
+    );
+
+    try {
+      const resposta = await fetch(
+        favoritoAtual
+          ? `http://localhost:3000/favoritos/${modeloId}`
+          : "http://localhost:3000/favoritos",
+        {
+          method: favoritoAtual ? "DELETE" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: favoritoAtual ? undefined : JSON.stringify({ modeloId }),
+        },
+      );
+
+      if (!resposta.ok) {
+        // Reverte se der erro
+        setCardapios((prev) =>
+          prev.map((c) =>
+            c.modeloId === modeloId ? { ...c, favorito: favoritoAtual } : c,
+          ),
+        );
+        const dados = await resposta.json();
+        Alert.alert("Erro", dados.error);
+      }
+    } catch (e) {
+      setCardapios((prev) =>
+        prev.map((c) =>
+          c.modeloId === modeloId ? { ...c, favorito: favoritoAtual } : c,
+        ),
+      );
+      Alert.alert("Erro", "Não foi possível atualizar o favorito");
+    }
+  }
 
   const semanasDoAno = useMemo(() => gerarSemanasDoAno(ano), [ano]);
 
@@ -227,7 +274,27 @@ export default function Cardapios() {
                             gap: 4,
                           }}
                         >
-                          <Text style={{ fontWeight: "600" }}>{item.tipo}</Text>
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              justifyContent: "space-between",
+                              alignItems: "center",
+                            }}
+                          >
+                            <Text style={{ fontWeight: "600" }}>
+                              {item.tipo}
+                            </Text>
+                            <TouchableOpacity
+                              onPress={() =>
+                                alternarFavorito(item.modeloId, item.favorito)
+                              }
+                              style={{ padding: 4 }}
+                            >
+                              <Text style={{ fontSize: 18 }}>
+                                {item.favorito ? "⭐" : "☆"}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
                           {item.itens.map((comida, j) => (
                             <Text key={j}>• {comida}</Text>
                           ))}

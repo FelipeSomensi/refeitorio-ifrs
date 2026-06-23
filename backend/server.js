@@ -7,6 +7,7 @@ const jwt = require("jsonwebtoken");
 const users = require("./users");
 const cardapios = require("./cardapios"); // atribuições: { dia, modeloId }
 const modelos = require("./modelos"); // modelos reutilizáveis: { id, tipo, itens }
+const favoritos = require("./favoritos"); // favoritos pessoais: { usuarioId, modeloId }
 
 const app = express();
 
@@ -44,8 +45,9 @@ const verifyServidor = (req, res, next) => {
   next();
 };
 
-// Junta uma atribuição (dia + modeloId) com o conteúdo do modelo
-function montarCardapioCompleto(atribuicao) {
+// Junta uma atribuição (dia + modeloId) com o conteúdo do modelo,
+// marcando se o modelo é favorito do usuário logado
+function montarCardapioCompleto(atribuicao, usuarioId) {
   const modelo = modelos.find((m) => m.id === atribuicao.modeloId);
   if (!modelo) return null;
   return {
@@ -53,6 +55,9 @@ function montarCardapioCompleto(atribuicao) {
     modeloId: modelo.id,
     tipo: modelo.tipo,
     itens: modelo.itens,
+    favorito: favoritos.some(
+      (f) => f.usuarioId === usuarioId && f.modeloId === modelo.id,
+    ),
   };
 }
 
@@ -82,10 +87,10 @@ app.post("/login", (req, res) => {
 // ===================== CARDÁPIOS (ATRIBUIÇÕES POR DIA) =====================
 
 // LISTAR CARDÁPIOS (qualquer usuário logado)
-// Mantém o formato { dia, tipo, itens } esperado pelo app, com modeloId extra
+// Mantém o formato { dia, tipo, itens } esperado pelo app, com modeloId e favorito extras
 app.get("/cardapio", verifyToken, (req, res) => {
   const completos = cardapios
-    .map(montarCardapioCompleto)
+    .map((c) => montarCardapioCompleto(c, req.user.id))
     .filter((c) => c !== null);
 
   return res.json(completos);
@@ -121,7 +126,7 @@ app.post("/cardapio", verifyToken, verifyServidor, (req, res) => {
 
   return res.status(201).json({
     message: "Cardápio atribuído ao dia com sucesso",
-    cardapio: montarCardapioCompleto(nova),
+    cardapio: montarCardapioCompleto(nova, req.user.id),
   });
 });
 
@@ -189,6 +194,79 @@ app.delete("/modelos/:id", verifyToken, verifyServidor, (req, res) => {
 
   modelos.splice(index, 1);
   return res.json({ message: "Modelo excluído com sucesso" });
+});
+
+// ===================== FAVORITOS (PESSOAIS POR USUÁRIO) =====================
+
+// LISTAR MEUS FAVORITOS — para cada modelo favoritado, traz o conteúdo
+// e todos os dias (datas) em que esse modelo está atribuído atualmente.
+app.get("/favoritos", verifyToken, (req, res) => {
+  const meusFavoritos = favoritos.filter((f) => f.usuarioId === req.user.id);
+
+  const completos = meusFavoritos
+    .map((f) => {
+      const modelo = modelos.find((m) => m.id === f.modeloId);
+      if (!modelo) return null;
+
+      const dias = cardapios
+        .filter((c) => c.modeloId === modelo.id)
+        .map((c) => c.dia)
+        .sort();
+
+      return {
+        modeloId: modelo.id,
+        tipo: modelo.tipo,
+        itens: modelo.itens,
+        dias, // todos os dias em que esse cardápio favoritado aparece
+      };
+    })
+    .filter((c) => c !== null);
+
+  return res.json(completos);
+});
+
+// FAVORITAR um modelo de cardápio (qualquer usuário logado)
+app.post("/favoritos", verifyToken, (req, res) => {
+  const { modeloId } = req.body;
+
+  if (!modeloId) {
+    return res.status(400).json({ error: "Campo obrigatório: modeloId" });
+  }
+
+  const modelo = modelos.find((m) => m.id === Number(modeloId));
+  if (!modelo) {
+    return res.status(404).json({ error: "Modelo de cardápio não encontrado" });
+  }
+
+  const jaFavoritado = favoritos.some(
+    (f) => f.usuarioId === req.user.id && f.modeloId === Number(modeloId),
+  );
+
+  if (jaFavoritado) {
+    return res
+      .status(409)
+      .json({ error: "Este cardápio já está nos seus favoritos" });
+  }
+
+  favoritos.push({ usuarioId: req.user.id, modeloId: Number(modeloId) });
+
+  return res.status(201).json({ message: "Cardápio adicionado aos favoritos" });
+});
+
+// DESFAVORITAR um modelo de cardápio (qualquer usuário logado)
+app.delete("/favoritos/:modeloId", verifyToken, (req, res) => {
+  const modeloId = Number(req.params.modeloId);
+
+  const index = favoritos.findIndex(
+    (f) => f.usuarioId === req.user.id && f.modeloId === modeloId,
+  );
+
+  if (index === -1) {
+    return res.status(404).json({ error: "Favorito não encontrado" });
+  }
+
+  favoritos.splice(index, 1);
+  return res.json({ message: "Cardápio removido dos favoritos" });
 });
 
 // ===================== USUÁRIOS =====================
