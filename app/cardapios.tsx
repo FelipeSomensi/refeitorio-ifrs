@@ -1,4 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
@@ -31,7 +33,7 @@ export default function Cardapios() {
   const padrao = semanaAtual();
   const [ano, setAno] = useState(padrao.ano);
   const [numeroSemana, setNumeroSemana] = useState(padrao.numeroSemana);
-  const [diaExpandido, setDiaExpandido] = useState<string | null>(null);
+  const [diasExpandidos, setDiasExpandidos] = useState<string[]>([]);
 
   const [modalSemanaAberto, setModalSemanaAberto] = useState(false);
 
@@ -136,11 +138,83 @@ export default function Cardapios() {
     const atual = semanaAtual();
     setAno(atual.ano);
     setNumeroSemana(atual.numeroSemana);
-    setDiaExpandido(null);
+    setDiasExpandidos([]);
   }
 
   const ehSemanaAtual =
     ano === padrao.ano && numeroSemana === padrao.numeroSemana;
+
+  const [exportando, setExportando] = useState(false);
+
+  async function exportarPDF() {
+    setExportando(true);
+
+    try {
+      const semanaTemAlgumCardapio = diasDaSemana.some(
+        ({ iso }) => cardapiosDoDia(iso).length > 0,
+      );
+
+      const blocosDias = diasDaSemana
+        .map(({ iso, nome }) => {
+          const itensDoDia = cardapiosDoDia(iso);
+
+          const refeicoes =
+            itensDoDia.length === 0
+              ? `<p>Sem cardápio cadastrado.</p>`
+              : itensDoDia
+                  .map(
+                    (item) => `
+                      <p><strong>${item.tipo}${item.favorito ? " ⭐" : ""}</strong></p>
+                      <ul>
+                        ${item.itens.map((comida) => `<li>${comida}</li>`).join("")}
+                      </ul>
+                    `,
+                  )
+                  .join("");
+
+          return `
+            <h2>${nome} · ${formatarDataBR(iso)}</h2>
+            ${refeicoes}
+          `;
+        })
+        .join("");
+
+      const corpo = semanaTemAlgumCardapio
+        ? blocosDias
+        : `<p>Nenhum cardápio foi cadastrado para esta semana.</p>`;
+
+      const html = `
+        <html>
+          <body>
+            <h1>Cardápio da Semana ${numeroSemana}</h1>
+            <p>
+              ${formatarDataBR(diasDaSemana[0].iso)} a ${formatarDataBR(diasDaSemana[4].iso)} · ${ano}
+            </p>
+            ${corpo}
+          </body>
+        </html>
+      `;
+
+      const { uri } = await Print.printToFileAsync({ html });
+
+      const podeCompartilhar = await Sharing.isAvailableAsync();
+      if (podeCompartilhar) {
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          dialogTitle: `Cardápio - Semana ${numeroSemana}`,
+        });
+      } else {
+        Alert.alert(
+          "PDF gerado",
+          "Não foi possível abrir o compartilhamento neste dispositivo.",
+        );
+      }
+    } catch (e) {
+      Alert.alert("Erro", "Não foi possível exportar o cardápio em PDF");
+    } finally {
+      setExportando(false);
+    }
+  }
 
   return (
     <View style={{ flex: 1 }}>
@@ -207,6 +281,21 @@ export default function Cardapios() {
             </Text>
           </TouchableOpacity>
         )}
+
+        <TouchableOpacity
+          onPress={exportarPDF}
+          disabled={exportando || diasDaSemana.length === 0}
+          style={{
+            backgroundColor: exportando ? "#EF9A9A" : "#C62828",
+            borderRadius: 10,
+            padding: 14,
+            alignItems: "center",
+          }}
+        >
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+            {exportando ? "Gerando PDF..." : "📄 Exportar semana em PDF"}
+          </Text>
+        </TouchableOpacity>
       </View>
 
       {/* LISTA DE DIAS DA SEMANA SELECIONADA */}
@@ -217,7 +306,7 @@ export default function Cardapios() {
           diasDaSemana.map(({ iso, nome }) => {
             const itensDoDia = cardapiosDoDia(iso);
             const ehHoje = iso === hojeISO;
-            const expandido = diaExpandido === iso;
+            const expandido = diasExpandidos.includes(iso);
 
             return (
               <View
@@ -229,7 +318,13 @@ export default function Cardapios() {
                 }}
               >
                 <TouchableOpacity
-                  onPress={() => setDiaExpandido(expandido ? null : iso)}
+                  onPress={() =>
+                    setDiasExpandidos((prev) =>
+                      expandido
+                        ? prev.filter((d) => d !== iso)
+                        : [...prev, iso],
+                    )
+                  }
                   style={{
                     flexDirection: "row",
                     justifyContent: "space-between",
@@ -345,7 +440,7 @@ export default function Cardapios() {
                   key={s.numero}
                   onPress={() => {
                     setNumeroSemana(s.numero);
-                    setDiaExpandido(null);
+                    setDiasExpandidos([]);
                     setModalSemanaAberto(false);
                   }}
                   style={{
