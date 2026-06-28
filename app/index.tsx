@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import { useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 import { cores, instituicao } from "./utils/tema";
 
@@ -9,6 +9,16 @@ export default function Index() {
   const [pwd, setPwd] = useState("");
   const [entrando, setEntrando] = useState(false);
   const [erro, setErro] = useState("");
+
+  // Sempre que essa tela voltar a ficar em foco (ex: ao deslogar e retornar
+  // ao login), limpa os campos e qualquer mensagem de erro antiga.
+  useFocusEffect(
+    useCallback(() => {
+      setLogin("");
+      setPwd("");
+      setErro("");
+    }, []),
+  );
 
   async function fazerLogin() {
     setErro("");

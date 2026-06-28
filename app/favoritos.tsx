@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import CabecalhoInstitucional from "./utils/CabecalhoInstitucional";
 import { formatarDataBR } from "./utils/semanas";
 import { cores } from "./utils/tema";
@@ -15,9 +15,11 @@ type Favorito = {
 export default function Favoritos() {
   const [favoritos, setFavoritos] = useState<Favorito[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
 
   async function carregarFavoritos() {
     const token = await AsyncStorage.getItem("token");
+    setErro("");
 
     try {
       const resposta = await fetch("http://localhost:3000/favoritos", {
@@ -27,19 +29,20 @@ export default function Favoritos() {
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível carregar os favoritos.");
         return;
       }
 
       setFavoritos(dados);
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível carregar os favoritos");
+      setErro("Não foi possível carregar os favoritos.");
     } finally {
       setLoading(false);
     }
   }
 
   async function removerFavorito(modeloId: number) {
+    setErro("");
     const token = await AsyncStorage.getItem("token");
 
     try {
@@ -54,13 +57,13 @@ export default function Favoritos() {
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível remover o favorito.");
         return;
       }
 
       setFavoritos((prev) => prev.filter((f) => f.modeloId !== modeloId));
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível remover o favorito");
+      setErro("Não foi possível remover o favorito.");
     }
   }
 
@@ -73,6 +76,26 @@ export default function Favoritos() {
       <CabecalhoInstitucional subtitulo="Meus Favoritos" />
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+        {erro && (
+          <View
+            style={{
+              backgroundColor: cores.erroFundo,
+              borderRadius: 8,
+              padding: 10,
+            }}
+          >
+            <Text
+              style={{
+                color: cores.erro,
+                fontWeight: "600",
+                textAlign: "center",
+              }}
+            >
+              {erro}
+            </Text>
+          </View>
+        )}
+
         {loading ? (
           <Text style={{ color: "#888" }}>Carregando...</Text>
         ) : favoritos.length === 0 ? (

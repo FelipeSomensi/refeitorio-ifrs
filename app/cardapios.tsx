@@ -2,14 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Alert,
-  Modal,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Modal, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import CabecalhoInstitucional from "./utils/CabecalhoInstitucional";
 import {
   formatarDataBR,
@@ -31,6 +24,7 @@ type Cardapio = {
 export default function Cardapios() {
   const [cardapios, setCardapios] = useState<Cardapio[]>([]);
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
 
   const padrao = semanaAtual();
   const [ano, setAno] = useState(padrao.ano);
@@ -43,6 +37,7 @@ export default function Cardapios() {
 
   async function carregarCardapios() {
     const token = await AsyncStorage.getItem("token");
+    setErro("");
 
     try {
       const resposta = await fetch("http://localhost:3000/cardapio", {
@@ -52,13 +47,13 @@ export default function Cardapios() {
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível carregar os cardápios.");
         return;
       }
 
       setCardapios(dados);
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível carregar os cardápios");
+      setErro("Não foi possível carregar os cardápios.");
     } finally {
       setLoading(false);
     }
@@ -101,7 +96,7 @@ export default function Cardapios() {
           ),
         );
         const dados = await resposta.json();
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível atualizar o favorito.");
       }
     } catch (e) {
       setCardapios((prev) =>
@@ -109,7 +104,7 @@ export default function Cardapios() {
           c.modeloId === modeloId ? { ...c, favorito: favoritoAtual } : c,
         ),
       );
-      Alert.alert("Erro", "Não foi possível atualizar o favorito");
+      setErro("Não foi possível atualizar o favorito.");
     }
   }
 
@@ -147,9 +142,12 @@ export default function Cardapios() {
     ano === padrao.ano && numeroSemana === padrao.numeroSemana;
 
   const [exportando, setExportando] = useState(false);
+  const [sucesso, setSucesso] = useState("");
 
   async function exportarPDF() {
     setExportando(true);
+    setErro("");
+    setSucesso("");
 
     try {
       const semanaTemAlgumCardapio = diasDaSemana.some(
@@ -206,13 +204,13 @@ export default function Cardapios() {
           dialogTitle: `Cardápio - Semana ${numeroSemana}`,
         });
       } else {
-        Alert.alert(
-          "PDF gerado",
-          "Não foi possível abrir o compartilhamento neste dispositivo.",
+        setSucesso(
+          "PDF gerado, mas não foi possível abrir o compartilhamento neste dispositivo.",
         );
+        setTimeout(() => setSucesso(""), 4000);
       }
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível exportar o cardápio em PDF");
+      setErro("Não foi possível exportar o cardápio em PDF.");
     } finally {
       setExportando(false);
     }
@@ -221,6 +219,50 @@ export default function Cardapios() {
   return (
     <View style={{ flex: 1, backgroundColor: cores.branco }}>
       <CabecalhoInstitucional subtitulo="Cardápios da Semana" />
+
+      {(sucesso || erro) && (
+        <View style={{ padding: 16, paddingBottom: 0 }}>
+          {sucesso && (
+            <View
+              style={{
+                backgroundColor: cores.verdeMedio,
+                borderRadius: 8,
+                padding: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: cores.verdeEscuro,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                ✓ {sucesso}
+              </Text>
+            </View>
+          )}
+
+          {erro && (
+            <View
+              style={{
+                backgroundColor: cores.erroFundo,
+                borderRadius: 8,
+                padding: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: cores.erro,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                {erro}
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* SELETOR DE ANO */}
       <View

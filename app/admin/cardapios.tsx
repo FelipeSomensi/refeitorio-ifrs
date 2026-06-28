@@ -1,7 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
 import {
-  Alert,
   Modal,
   ScrollView,
   Text,
@@ -31,6 +30,8 @@ type CardapioCompleto = {
   itens: string[];
 };
 
+const TIPOS_DISPONIVEIS = ["Café da Manhã", "Almoço", "Jantar"];
+
 export default function AdminCardapios() {
   const [cardapios, setCardapios] = useState<CardapioCompleto[]>([]);
   const [modelos, setModelos] = useState<Modelo[]>([]);
@@ -46,10 +47,18 @@ export default function AdminCardapios() {
   const [modalModeloAberto, setModalModeloAberto] = useState(false);
 
   // modo "novo"
-  const [novoTipo, setNovoTipo] = useState("");
+  const [novoTipo, setNovoTipo] = useState(TIPOS_DISPONIVEIS[0]);
   const [novosItensTexto, setNovosItensTexto] = useState("");
 
   const [loading, setLoading] = useState(false);
+  const [sucesso, setSucesso] = useState("");
+  const [erro, setErro] = useState("");
+
+  // confirmação de remoção (modal próprio, em vez de Alert.alert, que não
+  // funciona de forma confiável no Expo Web)
+  const [itemParaRemover, setItemParaRemover] =
+    useState<CardapioCompleto | null>(null);
+  const [removendo, setRemovendo] = useState(false);
 
   // navegação de ano/semana para a LISTAGEM
   const padrao = semanaAtual();
@@ -66,7 +75,7 @@ export default function AdminCardapios() {
       const dados = await resposta.json();
       if (resposta.ok) setCardapios(dados);
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível carregar os cardápios");
+      setErro("Não foi possível carregar os cardápios.");
     }
   }
 
@@ -79,17 +88,20 @@ export default function AdminCardapios() {
       const dados = await resposta.json();
       if (resposta.ok) setModelos(dados);
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível carregar os modelos de cardápio");
+      setErro("Não foi possível carregar os modelos de cardápio.");
     }
   }
 
   async function atribuirCardapio() {
+    setSucesso("");
+    setErro("");
+
     if (!dia) {
-      Alert.alert("Atenção", "Informe o dia.");
+      setErro("Informe o dia.");
       return;
     }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(dia)) {
-      Alert.alert("Atenção", "Data deve estar no formato AAAA-MM-DD");
+      setErro("Data deve estar no formato AAAA-MM-DD.");
       return;
     }
 
@@ -102,7 +114,7 @@ export default function AdminCardapios() {
       // MODO "NOVO": cria o modelo primeiro
       if (modo === "novo") {
         if (!novoTipo.trim() || !novosItensTexto.trim()) {
-          Alert.alert("Atenção", "Preencha tipo e itens do novo cardápio.");
+          setErro("Preencha tipo e itens do novo cardápio.");
           setLoading(false);
           return;
         }
@@ -113,7 +125,7 @@ export default function AdminCardapios() {
           .filter((i) => i.length > 0);
 
         if (itens.length === 0) {
-          Alert.alert("Atenção", "Informe ao menos um item.");
+          setErro("Informe ao menos um item.");
           setLoading(false);
           return;
         }
@@ -130,7 +142,7 @@ export default function AdminCardapios() {
         const dadosModelo = await respostaModelo.json();
 
         if (!respostaModelo.ok) {
-          Alert.alert("Erro", dadosModelo.error);
+          setErro(dadosModelo.error || "Não foi possível criar o cardápio.");
           setLoading(false);
           return;
         }
@@ -141,10 +153,7 @@ export default function AdminCardapios() {
 
       // MODO "EXISTENTE": precisa ter selecionado um modelo
       if (modo === "existente" && !modeloId) {
-        Alert.alert(
-          "Atenção",
-          "Selecione um cardápio existente para reutilizar.",
-        );
+        setErro("Selecione um cardápio existente para reutilizar.");
         setLoading(false);
         return;
       }
@@ -162,60 +171,79 @@ export default function AdminCardapios() {
       const dadosAtribuicao = await respostaAtribuicao.json();
 
       if (!respostaAtribuicao.ok) {
-        Alert.alert("Erro", dadosAtribuicao.error);
+        setErro(
+          dadosAtribuicao.error || "Não foi possível atribuir o cardápio.",
+        );
         return;
       }
 
-      Alert.alert("Sucesso", dadosAtribuicao.message);
+      setSucesso("Cardápio adicionado!");
+      setTimeout(() => setSucesso(""), 3000);
       setDia("");
       setModeloSelecionadoId(null);
-      setNovoTipo("");
+      setNovoTipo(TIPOS_DISPONIVEIS[0]);
       setNovosItensTexto("");
       carregarCardapios();
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível atribuir o cardápio");
+      setErro("Não foi possível atribuir o cardápio.");
     } finally {
       setLoading(false);
     }
   }
 
-  async function removerAtribuicao(item: CardapioCompleto) {
-    Alert.alert(
-      "Confirmar",
-      `Remover "${item.tipo}" do dia ${formatarDataBR(item.dia)}? (o modelo continua salvo para reutilizar depois)`,
-      [
-        { text: "Cancelar", style: "cancel" },
-        {
-          text: "Remover",
-          style: "destructive",
-          onPress: async () => {
-            const token = await AsyncStorage.getItem("token");
-            try {
-              const resposta = await fetch("http://localhost:3000/cardapio", {
-                method: "DELETE",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                  dia: item.dia,
-                  modeloId: item.modeloId,
-                }),
-              });
-              const dados = await resposta.json();
-              if (resposta.ok) {
-                Alert.alert("Sucesso", dados.message);
-                carregarCardapios();
-              } else {
-                Alert.alert("Erro", dados.error);
-              }
-            } catch (e) {
-              Alert.alert("Erro", "Não foi possível remover");
-            }
-          },
+  function removerAtribuicao(item: CardapioCompleto) {
+    setItemParaRemover(item);
+  }
+
+  async function confirmarRemocao() {
+    if (!itemParaRemover) return;
+
+    setRemovendo(true);
+    setErro("");
+
+    const token = await AsyncStorage.getItem("token");
+    try {
+      const resposta = await fetch("http://localhost:3000/cardapio", {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
-      ],
-    );
+        body: JSON.stringify({
+          dia: itemParaRemover.dia,
+          modeloId: itemParaRemover.modeloId,
+        }),
+      });
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        setErro(dados.error || "Não foi possível remover o cardápio.");
+        return;
+      }
+
+      // Remove imediatamente da lista local (não depende só do reload)
+      setCardapios((prev) =>
+        prev.filter(
+          (c) =>
+            !(
+              c.dia === itemParaRemover.dia &&
+              c.modeloId === itemParaRemover.modeloId
+            ),
+        ),
+      );
+
+      setSucesso("Cardápio removido!");
+      setTimeout(() => setSucesso(""), 3000);
+      setItemParaRemover(null);
+
+      // Garante consistência com o servidor
+      carregarCardapios();
+    } catch (e) {
+      setErro("Não foi possível remover o cardápio.");
+    } finally {
+      setRemovendo(false);
+    }
   }
 
   const semanasDoAno = useMemo(() => gerarSemanasDoAno(ano), [ano]);
@@ -374,12 +402,43 @@ export default function AdminCardapios() {
           {/* MODO NOVO: campos de criação */}
           {modo === "novo" && (
             <>
-              <TextInput
-                placeholder="Tipo (ex: Almoço, Jantar)"
-                value={novoTipo}
-                onChangeText={setNovoTipo}
-                style={inputStyle}
-              />
+              <Text style={{ fontWeight: "500", color: cores.cinzaTexto }}>
+                Tipo de refeição:
+              </Text>
+              <View style={{ flexDirection: "row", gap: 8 }}>
+                {TIPOS_DISPONIVEIS.map((tipoOpcao) => {
+                  const selecionado = novoTipo === tipoOpcao;
+                  return (
+                    <TouchableOpacity
+                      key={tipoOpcao}
+                      onPress={() => setNovoTipo(tipoOpcao)}
+                      style={{
+                        flex: 1,
+                        paddingVertical: 10,
+                        paddingHorizontal: 4,
+                        borderRadius: 8,
+                        backgroundColor: selecionado
+                          ? cores.verdeEscuro
+                          : cores.branco,
+                        borderWidth: 1,
+                        borderColor: cores.verdeEscuro,
+                        alignItems: "center",
+                      }}
+                    >
+                      <Text
+                        style={{
+                          color: selecionado ? cores.branco : cores.verdeEscuro,
+                          fontSize: 13,
+                          textAlign: "center",
+                        }}
+                      >
+                        {tipoOpcao}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
               <TextInput
                 placeholder="Itens separados por vírgula (ex: Arroz, Feijão, Frango)"
                 value={novosItensTexto}
@@ -411,6 +470,46 @@ export default function AdminCardapios() {
               {loading ? "Salvando..." : "Atribuir Cardápio"}
             </Text>
           </TouchableOpacity>
+
+          {sucesso && (
+            <View
+              style={{
+                backgroundColor: cores.verdeMedio,
+                borderRadius: 8,
+                padding: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: cores.verdeEscuro,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                ✓ {sucesso}
+              </Text>
+            </View>
+          )}
+
+          {erro && (
+            <View
+              style={{
+                backgroundColor: cores.erroFundo,
+                borderRadius: 8,
+                padding: 10,
+              }}
+            >
+              <Text
+                style={{
+                  color: cores.erro,
+                  fontWeight: "600",
+                  textAlign: "center",
+                }}
+              >
+                {erro}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* NAVEGAÇÃO DE ANO E SEMANA */}
@@ -557,6 +656,85 @@ export default function AdminCardapios() {
             </View>
           ))
         )}
+
+        {/* MODAL: CONFIRMAR REMOÇÃO */}
+        <Modal
+          visible={itemParaRemover !== null}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setItemParaRemover(null)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.4)",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: cores.branco,
+                borderRadius: 12,
+                padding: 20,
+                gap: 14,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "700",
+                  color: cores.cinzaTexto,
+                }}
+              >
+                Remover cardápio?
+              </Text>
+
+              {itemParaRemover && (
+                <Text style={{ color: "#555", fontSize: 14 }}>
+                  Remover {itemParaRemover.tipo} do dia{" "}
+                  {formatarDataBR(itemParaRemover.dia)}? O modelo continua salvo
+                  para reutilizar depois.
+                </Text>
+              )}
+
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+                <TouchableOpacity
+                  onPress={() => setItemParaRemover(null)}
+                  disabled={removendo}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: cores.cinzaBorda,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: cores.cinzaTexto, fontWeight: "600" }}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={confirmarRemocao}
+                  disabled={removendo}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: removendo ? cores.erroFundo : cores.erro,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: cores.branco, fontWeight: "700" }}>
+                    {removendo ? "Removendo..." : "Remover"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
 
         {/* MODAL: ESCOLHER MODELO EXISTENTE */}
         <Modal

@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import CabecalhoInstitucional from "./utils/CabecalhoInstitucional";
 import {
   formatarDataBR,
@@ -24,6 +24,7 @@ export default function Menu() {
   const [cardapiosDaSemana, setCardapiosDaSemana] = useState<Cardapio[]>([]);
   const [userType, setUserType] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [erro, setErro] = useState("");
 
   const hojeISO = paraISO(new Date());
 
@@ -39,6 +40,7 @@ export default function Menu() {
     const token = await AsyncStorage.getItem("token");
     const type = await AsyncStorage.getItem("userType");
     setUserType(type || "");
+    setErro("");
 
     try {
       const resposta = await fetch("http://localhost:3000/cardapio", {
@@ -48,7 +50,7 @@ export default function Menu() {
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível carregar o cardápio.");
         return;
       }
 
@@ -58,7 +60,7 @@ export default function Menu() {
       );
       setCardapiosDaSemana(filtrados);
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível carregar o cardápio");
+      setErro("Não foi possível carregar o cardápio.");
     } finally {
       setLoading(false);
     }
@@ -77,6 +79,26 @@ export default function Menu() {
       <CabecalhoInstitucional subtitulo="Menu Principal" />
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+        {erro && (
+          <View
+            style={{
+              backgroundColor: cores.erroFundo,
+              borderRadius: 8,
+              padding: 10,
+            }}
+          >
+            <Text
+              style={{
+                color: cores.erro,
+                fontWeight: "600",
+                textAlign: "center",
+              }}
+            >
+              {erro}
+            </Text>
+          </View>
+        )}
+
         {/* CARDÁPIOS DA SEMANA */}
         <Text
           style={{ fontSize: 18, fontWeight: "600", color: cores.cinzaTexto }}

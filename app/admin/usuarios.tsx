@@ -1,7 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
-  Alert,
+  Modal,
   ScrollView,
   Text,
   TextInput,
@@ -33,6 +33,15 @@ export default function AdminUsuarios() {
   const [editType, setEditType] = useState<"aluno" | "servidor">("aluno");
 
   const [loading, setLoading] = useState(false);
+  const [sucesso, setSucesso] = useState("");
+  const [erro, setErro] = useState("");
+
+  // confirmação de exclusão (modal próprio, em vez de Alert.alert, que não
+  // funciona de forma confiável no Expo Web)
+  const [usuarioParaExcluir, setUsuarioParaExcluir] = useState<Usuario | null>(
+    null,
+  );
+  const [excluindo, setExcluindo] = useState(false);
 
   function decodificarMeuId(token: string) {
     try {
@@ -56,16 +65,19 @@ export default function AdminUsuarios() {
       if (resposta.ok) {
         setUsuarios(dados);
       } else {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível carregar os usuários.");
       }
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível carregar os usuários");
+      setErro("Não foi possível carregar os usuários.");
     }
   }
 
   async function cadastrarUsuario() {
+    setErro("");
+    setSucesso("");
+
     if (!login.trim() || !pwd.trim()) {
-      Alert.alert("Atenção", "Preencha login e senha.");
+      setErro("Preencha login e senha.");
       return;
     }
 
@@ -85,17 +97,18 @@ export default function AdminUsuarios() {
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível cadastrar o usuário.");
         return;
       }
 
-      Alert.alert("Sucesso", dados.message);
+      setSucesso("Usuário cadastrado!");
+      setTimeout(() => setSucesso(""), 3000);
       setLogin("");
       setPwd("");
       setType("aluno");
       carregarUsuarios();
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível cadastrar o usuário");
+      setErro("Não foi possível cadastrar o usuário.");
     } finally {
       setLoading(false);
     }
@@ -115,6 +128,9 @@ export default function AdminUsuarios() {
   }
 
   async function salvarEdicao(id: number) {
+    setErro("");
+    setSucesso("");
+
     const token = await AsyncStorage.getItem("token");
 
     const body: Record<string, string> = {
@@ -136,47 +152,60 @@ export default function AdminUsuarios() {
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Não foi possível atualizar o usuário.");
         return;
       }
 
-      Alert.alert("Sucesso", dados.message);
+      setSucesso("Usuário atualizado!");
+      setTimeout(() => setSucesso(""), 3000);
       cancelarEdicao();
       carregarUsuarios();
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível atualizar o usuário");
+      setErro("Não foi possível atualizar o usuário.");
     }
   }
 
-  async function excluirUsuario(usuario: Usuario) {
-    Alert.alert("Confirmar", `Excluir o usuário "${usuario.login}"?`, [
-      { text: "Cancelar", style: "cancel" },
-      {
-        text: "Excluir",
-        style: "destructive",
-        onPress: async () => {
-          const token = await AsyncStorage.getItem("token");
-          try {
-            const resposta = await fetch(
-              `http://localhost:3000/usuarios/${usuario.id}`,
-              {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${token}` },
-              },
-            );
-            const dados = await resposta.json();
-            if (resposta.ok) {
-              Alert.alert("Sucesso", dados.message);
-              carregarUsuarios();
-            } else {
-              Alert.alert("Erro", dados.error);
-            }
-          } catch (e) {
-            Alert.alert("Erro", "Não foi possível excluir o usuário");
-          }
+  function excluirUsuario(usuario: Usuario) {
+    setUsuarioParaExcluir(usuario);
+  }
+
+  async function confirmarExclusao() {
+    if (!usuarioParaExcluir) return;
+
+    setExcluindo(true);
+    setErro("");
+
+    const token = await AsyncStorage.getItem("token");
+    try {
+      const resposta = await fetch(
+        `http://localhost:3000/usuarios/${usuarioParaExcluir.id}`,
+        {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
         },
-      },
-    ]);
+      );
+
+      const dados = await resposta.json();
+
+      if (!resposta.ok) {
+        setErro(dados.error || "Não foi possível excluir o usuário.");
+        return;
+      }
+
+      // Remove imediatamente da lista local (não depende só do reload)
+      setUsuarios((prev) => prev.filter((u) => u.id !== usuarioParaExcluir.id));
+
+      setSucesso("Usuário excluído!");
+      setTimeout(() => setSucesso(""), 3000);
+      setUsuarioParaExcluir(null);
+
+      // Garante consistência com o servidor
+      carregarUsuarios();
+    } catch (e) {
+      setErro("Não foi possível excluir o usuário.");
+    } finally {
+      setExcluindo(false);
+    }
   }
 
   useEffect(() => {
@@ -188,6 +217,46 @@ export default function AdminUsuarios() {
       <CabecalhoInstitucional subtitulo="Gerenciar Usuários (Admin)" />
 
       <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+        {sucesso && (
+          <View
+            style={{
+              backgroundColor: cores.verdeMedio,
+              borderRadius: 8,
+              padding: 10,
+            }}
+          >
+            <Text
+              style={{
+                color: cores.verdeEscuro,
+                fontWeight: "600",
+                textAlign: "center",
+              }}
+            >
+              ✓ {sucesso}
+            </Text>
+          </View>
+        )}
+
+        {erro && (
+          <View
+            style={{
+              backgroundColor: cores.erroFundo,
+              borderRadius: 8,
+              padding: 10,
+            }}
+          >
+            <Text
+              style={{
+                color: cores.erro,
+                fontWeight: "600",
+                textAlign: "center",
+              }}
+            >
+              {erro}
+            </Text>
+          </View>
+        )}
+
         {/* FORMULÁRIO DE CADASTRO */}
         <View
           style={{
@@ -478,6 +547,84 @@ export default function AdminUsuarios() {
             );
           })
         )}
+
+        {/* MODAL: CONFIRMAR EXCLUSÃO */}
+        <Modal
+          visible={usuarioParaExcluir !== null}
+          animationType="fade"
+          transparent
+          onRequestClose={() => setUsuarioParaExcluir(null)}
+        >
+          <View
+            style={{
+              flex: 1,
+              backgroundColor: "rgba(0,0,0,0.4)",
+              justifyContent: "center",
+              padding: 24,
+            }}
+          >
+            <View
+              style={{
+                backgroundColor: cores.branco,
+                borderRadius: 12,
+                padding: 20,
+                gap: 14,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 17,
+                  fontWeight: "700",
+                  color: cores.cinzaTexto,
+                }}
+              >
+                Excluir usuário?
+              </Text>
+
+              {usuarioParaExcluir && (
+                <Text style={{ color: "#555", fontSize: 14 }}>
+                  Tem certeza que deseja excluir o usuário
+                  {usuarioParaExcluir.login} ? Essa ação não pode ser desfeita.
+                </Text>
+              )}
+
+              <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+                <TouchableOpacity
+                  onPress={() => setUsuarioParaExcluir(null)}
+                  disabled={excluindo}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    borderWidth: 1,
+                    borderColor: cores.cinzaBorda,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: cores.cinzaTexto, fontWeight: "600" }}>
+                    Cancelar
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={confirmarExclusao}
+                  disabled={excluindo}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    backgroundColor: excluindo ? cores.erroFundo : cores.erro,
+                    alignItems: "center",
+                  }}
+                >
+                  <Text style={{ color: cores.branco, fontWeight: "700" }}>
+                    {excluindo ? "Excluindo..." : "Excluir"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </View>
   );
