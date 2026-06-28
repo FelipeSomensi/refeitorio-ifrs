@@ -10,6 +10,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import CabecalhoInstitucional from "./utils/CabecalhoInstitucional";
 import {
   formatarDataBR,
   gerarDiasUteis,
@@ -17,6 +18,7 @@ import {
   paraISO,
   semanaAtual,
 } from "./utils/semanas";
+import { cores } from "./utils/tema";
 
 type Cardapio = {
   dia: string; // YYYY-MM-DD
@@ -217,14 +219,16 @@ export default function Cardapios() {
   }
 
   return (
-    <View style={{ flex: 1 }}>
+    <View style={{ flex: 1, backgroundColor: cores.branco }}>
+      <CabecalhoInstitucional subtitulo="Cardápios da Semana" />
+
       {/* SELETOR DE ANO */}
       <View
         style={{
           flexDirection: "row",
           alignItems: "center",
           justifyContent: "space-between",
-          backgroundColor: "#F5F5F5",
+          backgroundColor: cores.cinzaClaro,
           padding: 12,
         }}
       >
@@ -232,16 +236,20 @@ export default function Cardapios() {
           onPress={() => irParaAno(ano - 1)}
           style={{ padding: 8 }}
         >
-          <Text style={{ fontSize: 18 }}>◀</Text>
+          <Text style={{ fontSize: 18, color: cores.cinzaTexto }}>◀</Text>
         </TouchableOpacity>
 
-        <Text style={{ fontSize: 18, fontWeight: "bold" }}>{ano}</Text>
+        <Text
+          style={{ fontSize: 18, fontWeight: "bold", color: cores.cinzaTexto }}
+        >
+          {ano}
+        </Text>
 
         <TouchableOpacity
           onPress={() => irParaAno(ano + 1)}
           style={{ padding: 8 }}
         >
-          <Text style={{ fontSize: 18 }}>▶</Text>
+          <Text style={{ fontSize: 18, color: cores.cinzaTexto }}>▶</Text>
         </TouchableOpacity>
       </View>
 
@@ -251,17 +259,23 @@ export default function Cardapios() {
           onPress={() => setModalSemanaAberto(true)}
           style={{
             borderWidth: 1,
-            borderColor: "#BDBDBD",
+            borderColor: cores.cinzaBorda,
             borderRadius: 10,
             padding: 14,
             flexDirection: "row",
             justifyContent: "space-between",
             alignItems: "center",
-            backgroundColor: "#fff",
+            backgroundColor: cores.branco,
           }}
         >
           <View>
-            <Text style={{ fontWeight: "700", fontSize: 16 }}>
+            <Text
+              style={{
+                fontWeight: "700",
+                fontSize: 16,
+                color: cores.cinzaTexto,
+              }}
+            >
               Semana {numeroSemana}
             </Text>
             {diasDaSemana.length > 0 && (
@@ -271,12 +285,12 @@ export default function Cardapios() {
               </Text>
             )}
           </View>
-          <Text style={{ fontSize: 16 }}>▼</Text>
+          <Text style={{ fontSize: 16, color: cores.cinzaTexto }}>▼</Text>
         </TouchableOpacity>
 
         {!ehSemanaAtual && (
           <TouchableOpacity onPress={voltarParaHoje}>
-            <Text style={{ color: "#2E7D32", fontWeight: "600" }}>
+            <Text style={{ color: cores.verdeEscuro, fontWeight: "600" }}>
               ↩ Voltar para semana atual
             </Text>
           </TouchableOpacity>
@@ -286,13 +300,17 @@ export default function Cardapios() {
           onPress={exportarPDF}
           disabled={exportando || diasDaSemana.length === 0}
           style={{
-            backgroundColor: exportando ? "#EF9A9A" : "#C62828",
+            backgroundColor: exportando
+              ? cores.verdeMedio
+              : cores.verdePrincipal,
             borderRadius: 10,
             padding: 14,
             alignItems: "center",
           }}
         >
-          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
+          <Text
+            style={{ color: cores.branco, fontWeight: "700", fontSize: 15 }}
+          >
             {exportando ? "Gerando PDF..." : "📄 Exportar semana em PDF"}
           </Text>
         </TouchableOpacity>
@@ -312,7 +330,7 @@ export default function Cardapios() {
               <View
                 key={iso}
                 style={{
-                  backgroundColor: ehHoje ? "#A5D6A7" : "#EDEDED",
+                  backgroundColor: ehHoje ? cores.verdeMedio : cores.cinzaClaro,
                   borderRadius: 10,
                   overflow: "hidden",
                 }}
@@ -424,7 +442,9 @@ export default function Cardapios() {
               Semanas de {ano}
             </Text>
             <TouchableOpacity onPress={() => setModalSemanaAberto(false)}>
-              <Text style={{ fontSize: 16, color: "#1565C0" }}>Fechar</Text>
+              <Text style={{ fontSize: 16, color: cores.verdeEscuro }}>
+                Fechar
+              </Text>
             </TouchableOpacity>
           </View>
 
@@ -446,7 +466,9 @@ export default function Cardapios() {
                   style={{
                     padding: 14,
                     borderRadius: 10,
-                    backgroundColor: selecionada ? "#2E7D32" : "#F5F5F5",
+                    backgroundColor: selecionada
+                      ? cores.verdeEscuro
+                      : cores.cinzaClaro,
                     flexDirection: "row",
                     justifyContent: "space-between",
                     alignItems: "center",
@@ -456,7 +478,7 @@ export default function Cardapios() {
                     <Text
                       style={{
                         fontWeight: "700",
-                        color: selecionada ? "#fff" : "#333",
+                        color: selecionada ? cores.branco : "#333",
                       }}
                     >
                       Semana {s.numero} {atual && "• Atual"}
@@ -464,7 +486,7 @@ export default function Cardapios() {
                     <Text
                       style={{
                         fontSize: 13,
-                        color: selecionada ? "#E8F5E9" : "#777",
+                        color: selecionada ? cores.verdeClaro : "#777",
                       }}
                     >
                       {formatarDataBR(dias[0].iso)} a{" "}

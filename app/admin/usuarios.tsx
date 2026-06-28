@@ -1,14 +1,15 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useState } from "react";
 import {
-    Alert,
-    Button,
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
+import CabecalhoInstitucional from "../utils/CabecalhoInstitucional";
+import { cores } from "../utils/tema";
 
 type Usuario = {
   id: number;
@@ -183,241 +184,310 @@ export default function AdminUsuarios() {
   }, []);
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: "bold" }}>
-        👤 Gerenciar Usuários
-      </Text>
+    <View style={{ flex: 1, backgroundColor: cores.branco }}>
+      <CabecalhoInstitucional subtitulo="Gerenciar Usuários (Admin)" />
 
-      {/* FORMULÁRIO DE CADASTRO */}
-      <View
-        style={{
-          backgroundColor: "#EDE7F6",
-          padding: 16,
-          borderRadius: 12,
-          gap: 10,
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: "600" }}>
-          Cadastrar Usuário
-        </Text>
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+        {/* FORMULÁRIO DE CADASTRO */}
+        <View
+          style={{
+            backgroundColor: cores.verdeClaro,
+            padding: 16,
+            borderRadius: 12,
+            gap: 10,
+          }}
+        >
+          <Text
+            style={{ fontSize: 18, fontWeight: "600", color: cores.cinzaTexto }}
+          >
+            Cadastrar Usuário
+          </Text>
 
-        <TextInput
-          placeholder="Login"
-          value={login}
-          onChangeText={setLogin}
-          autoCapitalize="none"
-          style={inputStyle}
-        />
+          <TextInput
+            placeholder="Login"
+            value={login}
+            onChangeText={setLogin}
+            autoCapitalize="none"
+            style={inputStyle}
+          />
 
-        <TextInput
-          placeholder="Senha"
-          value={pwd}
-          onChangeText={setPwd}
-          style={inputStyle}
-        />
+          <TextInput
+            placeholder="Senha"
+            value={pwd}
+            onChangeText={setPwd}
+            style={inputStyle}
+          />
 
-        <Text style={{ fontWeight: "500" }}>Tipo de usuário:</Text>
-        <View style={{ flexDirection: "row", gap: 10 }}>
+          <Text style={{ fontWeight: "500", color: cores.cinzaTexto }}>
+            Tipo de usuário:
+          </Text>
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => setType("aluno")}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 8,
+                backgroundColor:
+                  type === "aluno" ? cores.verdeEscuro : cores.branco,
+                borderWidth: 1,
+                borderColor: cores.verdeEscuro,
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: type === "aluno" ? cores.branco : cores.verdeEscuro,
+                }}
+              >
+                Aluno
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setType("servidor")}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 8,
+                backgroundColor:
+                  type === "servidor" ? cores.verdeEscuro : cores.branco,
+                borderWidth: 1,
+                borderColor: cores.verdeEscuro,
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: type === "servidor" ? cores.branco : cores.verdeEscuro,
+                }}
+              >
+                Servidor (Admin)
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
-            onPress={() => setType("aluno")}
+            onPress={cadastrarUsuario}
+            disabled={loading}
             style={{
-              flex: 1,
-              padding: 10,
-              borderRadius: 8,
-              backgroundColor: type === "aluno" ? "#7E57C2" : "#fff",
-              borderWidth: 1,
-              borderColor: "#7E57C2",
+              backgroundColor: loading
+                ? cores.verdeMedio
+                : cores.verdePrincipal,
+              borderRadius: 10,
+              padding: 14,
               alignItems: "center",
             }}
           >
-            <Text style={{ color: type === "aluno" ? "#fff" : "#7E57C2" }}>
-              Aluno
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setType("servidor")}
-            style={{
-              flex: 1,
-              padding: 10,
-              borderRadius: 8,
-              backgroundColor: type === "servidor" ? "#7E57C2" : "#fff",
-              borderWidth: 1,
-              borderColor: "#7E57C2",
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: type === "servidor" ? "#fff" : "#7E57C2" }}>
-              Servidor (Admin)
+            <Text
+              style={{ color: cores.branco, fontWeight: "700", fontSize: 15 }}
+            >
+              {loading ? "Salvando..." : "Cadastrar Usuário"}
             </Text>
           </TouchableOpacity>
         </View>
 
-        <Button
-          title={loading ? "Salvando..." : "Cadastrar Usuário"}
-          onPress={cadastrarUsuario}
-          disabled={loading}
-          color="#5E35B1"
-        />
-      </View>
+        {/* LISTA DE USUÁRIOS */}
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: "600",
+            marginTop: 8,
+            color: cores.cinzaTexto,
+          }}
+        >
+          Usuários Cadastrados
+        </Text>
 
-      {/* LISTA DE USUÁRIOS */}
-      <Text style={{ fontSize: 18, fontWeight: "600", marginTop: 8 }}>
-        Usuários Cadastrados
-      </Text>
+        {usuarios.length === 0 ? (
+          <Text style={{ color: "#888" }}>Nenhum usuário cadastrado.</Text>
+        ) : (
+          usuarios.map((usuario) => {
+            const souEu = usuario.id === meuId;
+            const emEdicao = editandoId === usuario.id;
 
-      {usuarios.length === 0 ? (
-        <Text style={{ color: "#888" }}>Nenhum usuário cadastrado.</Text>
-      ) : (
-        usuarios.map((usuario) => {
-          const souEu = usuario.id === meuId;
-          const emEdicao = editandoId === usuario.id;
-
-          return (
-            <View
-              key={usuario.id}
-              style={{
-                backgroundColor: souEu ? "#FFF9C4" : "#F5F5F5",
-                padding: 14,
-                borderRadius: 10,
-                gap: 8,
-              }}
-            >
-              {emEdicao ? (
-                <>
-                  <TextInput
-                    placeholder="Login"
-                    value={editLogin}
-                    onChangeText={setEditLogin}
-                    autoCapitalize="none"
-                    style={inputStyle}
-                  />
-                  <TextInput
-                    placeholder="Nova senha (deixe vazio para manter)"
-                    value={editPwd}
-                    onChangeText={setEditPwd}
-                    style={inputStyle}
-                  />
-                  <View style={{ flexDirection: "row", gap: 10 }}>
-                    <TouchableOpacity
-                      onPress={() => setEditType("aluno")}
-                      style={{
-                        flex: 1,
-                        padding: 8,
-                        borderRadius: 8,
-                        backgroundColor:
-                          editType === "aluno" ? "#7E57C2" : "#fff",
-                        borderWidth: 1,
-                        borderColor: "#7E57C2",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text
+            return (
+              <View
+                key={usuario.id}
+                style={{
+                  backgroundColor: souEu
+                    ? cores.favoritoFundo
+                    : cores.cinzaClaro,
+                  padding: 14,
+                  borderRadius: 10,
+                  gap: 8,
+                }}
+              >
+                {emEdicao ? (
+                  <>
+                    <TextInput
+                      placeholder="Login"
+                      value={editLogin}
+                      onChangeText={setEditLogin}
+                      autoCapitalize="none"
+                      style={inputStyle}
+                    />
+                    <TextInput
+                      placeholder="Nova senha (deixe vazio para manter)"
+                      value={editPwd}
+                      onChangeText={setEditPwd}
+                      style={inputStyle}
+                    />
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                      <TouchableOpacity
+                        onPress={() => setEditType("aluno")}
                         style={{
-                          color: editType === "aluno" ? "#fff" : "#7E57C2",
+                          flex: 1,
+                          padding: 8,
+                          borderRadius: 8,
+                          backgroundColor:
+                            editType === "aluno"
+                              ? cores.verdeEscuro
+                              : cores.branco,
+                          borderWidth: 1,
+                          borderColor: cores.verdeEscuro,
+                          alignItems: "center",
                         }}
                       >
-                        Aluno
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => setEditType("servidor")}
-                      style={{
-                        flex: 1,
-                        padding: 8,
-                        borderRadius: 8,
-                        backgroundColor:
-                          editType === "servidor" ? "#7E57C2" : "#fff",
-                        borderWidth: 1,
-                        borderColor: "#7E57C2",
-                        alignItems: "center",
-                      }}
-                    >
-                      <Text
+                        <Text
+                          style={{
+                            color:
+                              editType === "aluno"
+                                ? cores.branco
+                                : cores.verdeEscuro,
+                          }}
+                        >
+                          Aluno
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => setEditType("servidor")}
                         style={{
-                          color: editType === "servidor" ? "#fff" : "#7E57C2",
+                          flex: 1,
+                          padding: 8,
+                          borderRadius: 8,
+                          backgroundColor:
+                            editType === "servidor"
+                              ? cores.verdeEscuro
+                              : cores.branco,
+                          borderWidth: 1,
+                          borderColor: cores.verdeEscuro,
+                          alignItems: "center",
                         }}
                       >
-                        Servidor
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
+                        <Text
+                          style={{
+                            color:
+                              editType === "servidor"
+                                ? cores.branco
+                                : cores.verdeEscuro,
+                          }}
+                        >
+                          Servidor
+                        </Text>
+                      </TouchableOpacity>
+                    </View>
 
-                  <View style={{ flexDirection: "row", gap: 10 }}>
-                    <View style={{ flex: 1 }}>
-                      <Button
-                        title="Salvar"
+                    <View style={{ flexDirection: "row", gap: 10 }}>
+                      <TouchableOpacity
                         onPress={() => salvarEdicao(usuario.id)}
-                        color="#2E7D32"
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Button
-                        title="Cancelar"
+                        style={{
+                          flex: 1,
+                          backgroundColor: cores.verdePrincipal,
+                          borderRadius: 8,
+                          padding: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text
+                          style={{ color: cores.branco, fontWeight: "700" }}
+                        >
+                          Salvar
+                        </Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
                         onPress={cancelarEdicao}
-                        color="#757575"
-                      />
+                        style={{
+                          flex: 1,
+                          backgroundColor: cores.cinzaTexto,
+                          borderRadius: 8,
+                          padding: 10,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Text
+                          style={{ color: cores.branco, fontWeight: "700" }}
+                        >
+                          Cancelar
+                        </Text>
+                      </TouchableOpacity>
                     </View>
-                  </View>
-                </>
-              ) : (
-                <View
-                  style={{
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <View>
-                    <Text style={{ fontWeight: "bold", fontSize: 16 }}>
-                      {usuario.login} {souEu && "(você)"}
-                    </Text>
-                    <Text style={{ color: "#555" }}>
-                      {usuario.type === "servidor"
-                        ? "Servidor (Admin)"
-                        : "Aluno"}
-                    </Text>
-                  </View>
+                  </>
+                ) : (
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <View>
+                      <Text
+                        style={{
+                          fontWeight: "bold",
+                          fontSize: 16,
+                          color: cores.cinzaTexto,
+                        }}
+                      >
+                        {usuario.login} {souEu && "(você)"}
+                      </Text>
+                      <Text style={{ color: "#555" }}>
+                        {usuario.type === "servidor"
+                          ? "Servidor (Admin)"
+                          : "Aluno"}
+                      </Text>
+                    </View>
 
-                  {!souEu && (
-                    <View style={{ flexDirection: "row", gap: 8 }}>
-                      <TouchableOpacity
-                        onPress={() => iniciarEdicao(usuario)}
-                        style={{
-                          backgroundColor: "#BBDEFB",
-                          padding: 8,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <Text>✏️</Text>
-                      </TouchableOpacity>
-                      <TouchableOpacity
-                        onPress={() => excluirUsuario(usuario)}
-                        style={{
-                          backgroundColor: "#FFCDD2",
-                          padding: 8,
-                          borderRadius: 8,
-                        }}
-                      >
-                        <Text>🗑️</Text>
-                      </TouchableOpacity>
-                    </View>
-                  )}
-                </View>
-              )}
-            </View>
-          );
-        })
-      )}
-    </ScrollView>
+                    {!souEu && (
+                      <View style={{ flexDirection: "row", gap: 8 }}>
+                        <TouchableOpacity
+                          onPress={() => iniciarEdicao(usuario)}
+                          style={{
+                            backgroundColor: cores.verdeMedio,
+                            padding: 8,
+                            borderRadius: 8,
+                          }}
+                        >
+                          <Text>✏️</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          onPress={() => excluirUsuario(usuario)}
+                          style={{
+                            backgroundColor: cores.erroFundo,
+                            padding: 8,
+                            borderRadius: 8,
+                          }}
+                        >
+                          <Text>🗑️</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
+            );
+          })
+        )}
+      </ScrollView>
+    </View>
   );
 }
 
 const inputStyle = {
   borderWidth: 1,
-  borderColor: "#D1C4E9",
+  borderColor: cores.verdeMedio,
   borderRadius: 8,
   padding: 10,
-  backgroundColor: "#fff",
+  backgroundColor: cores.branco,
   fontSize: 15,
 };

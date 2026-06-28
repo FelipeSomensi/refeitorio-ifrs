@@ -1,13 +1,24 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
 import { useState } from "react";
-import { Alert, Button, Text, TextInput, View } from "react-native";
+import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { cores, instituicao } from "./utils/tema";
 
 export default function Index() {
   const [login, setLogin] = useState("");
   const [pwd, setPwd] = useState("");
+  const [entrando, setEntrando] = useState(false);
+  const [erro, setErro] = useState("");
 
   async function fazerLogin() {
+    setErro("");
+
+    if (!login.trim() || !pwd.trim()) {
+      setErro("Preencha login e senha.");
+      return;
+    }
+
+    setEntrando(true);
     try {
       const resposta = await fetch("http://localhost:3000/login", {
         method: "POST",
@@ -18,7 +29,7 @@ export default function Index() {
       const dados = await resposta.json();
 
       if (!resposta.ok) {
-        Alert.alert("Erro", dados.error);
+        setErro(dados.error || "Login ou senha inválidos.");
         return;
       }
 
@@ -27,42 +38,117 @@ export default function Index() {
 
       router.push("/menu");
     } catch (e) {
-      Alert.alert("Erro", "Não foi possível conectar");
+      setErro("Não foi possível conectar ao servidor.");
+    } finally {
+      setEntrando(false);
     }
   }
 
   return (
-    <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 12 }}>
-      <Text style={{ fontSize: 24, fontWeight: "bold", marginBottom: 8 }}>
-        Faça seu login
-      </Text>
-
-      <TextInput
-        placeholder="Login"
-        value={login}
-        onChangeText={setLogin}
+    <View style={{ flex: 1, backgroundColor: cores.branco }}>
+      {/* FAIXA INSTITUCIONAL */}
+      <View
         style={{
-          borderWidth: 1,
-          borderColor: "#ccc",
-          borderRadius: 8,
-          padding: 10,
+          backgroundColor: cores.verdePrincipal,
+          paddingTop: 56,
+          paddingBottom: 28,
+          paddingHorizontal: 24,
+          alignItems: "center",
+          gap: 4,
         }}
-      />
+      >
+        <Text style={{ color: cores.branco, fontSize: 12, opacity: 0.9 }}>
+          {instituicao.sigla} · {instituicao.campus}
+        </Text>
+        <Text style={{ color: cores.branco, fontSize: 22, fontWeight: "700" }}>
+          Cardápio Estudantil
+        </Text>
+      </View>
 
-      <TextInput
-        placeholder="Senha"
-        value={pwd}
-        onChangeText={setPwd}
-        secureTextEntry
-        style={{
-          borderWidth: 1,
-          borderColor: "#ccc",
-          borderRadius: 8,
-          padding: 10,
-        }}
-      />
+      {/* FORMULÁRIO */}
+      <View style={{ flex: 1, justifyContent: "center", padding: 24, gap: 12 }}>
+        <Text
+          style={{
+            fontSize: 20,
+            fontWeight: "bold",
+            marginBottom: 8,
+            color: cores.cinzaTexto,
+          }}
+        >
+          Faça seu login
+        </Text>
 
-      <Button title="Entrar" onPress={fazerLogin} />
+        <TextInput
+          placeholder="Login"
+          value={login}
+          onChangeText={(texto) => {
+            setLogin(texto);
+            setErro("");
+          }}
+          autoCapitalize="none"
+          style={{
+            borderWidth: 1,
+            borderColor: cores.cinzaBorda,
+            borderRadius: 8,
+            padding: 12,
+          }}
+        />
+
+        <TextInput
+          placeholder="Senha"
+          value={pwd}
+          onChangeText={(texto) => {
+            setPwd(texto);
+            setErro("");
+          }}
+          secureTextEntry
+          style={{
+            borderWidth: 1,
+            borderColor: cores.cinzaBorda,
+            borderRadius: 8,
+            padding: 12,
+          }}
+        />
+
+        {erro && (
+          <View
+            style={{
+              backgroundColor: cores.erroFundo,
+              borderRadius: 8,
+              padding: 10,
+            }}
+          >
+            <Text style={{ color: cores.erro, fontSize: 13 }}>{erro}</Text>
+          </View>
+        )}
+
+        <TouchableOpacity
+          onPress={fazerLogin}
+          disabled={entrando}
+          style={{
+            backgroundColor: entrando ? cores.verdeMedio : cores.verdePrincipal,
+            borderRadius: 8,
+            padding: 14,
+            alignItems: "center",
+            marginTop: 8,
+          }}
+        >
+          <Text
+            style={{ color: cores.branco, fontWeight: "700", fontSize: 15 }}
+          >
+            {entrando ? "Entrando..." : "Entrar"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* RODAPÉ INSTITUCIONAL */}
+      <View style={{ padding: 16, alignItems: "center" }}>
+        <Text
+          style={{ fontSize: 11, color: cores.cinzaTexto, textAlign: "center" }}
+        >
+          {instituicao.nomeCompleto}
+        </Text>
+      </View>
     </View>
   );
 }

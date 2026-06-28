@@ -2,7 +2,6 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useEffect, useMemo, useState } from "react";
 import {
   Alert,
-  Button,
   Modal,
   ScrollView,
   Text,
@@ -10,12 +9,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import CabecalhoInstitucional from "../utils/CabecalhoInstitucional";
 import {
   formatarDataBR,
   gerarDiasUteis,
   gerarSemanasDoAno,
   semanaAtual,
 } from "../utils/semanas";
+import { cores } from "../utils/tema";
 
 type Modelo = {
   id: number;
@@ -269,402 +270,465 @@ export default function AdminCardapios() {
   }, []);
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
-      <Text style={{ fontSize: 24, fontWeight: "bold" }}>
-        ⚙️ Gerenciar Cardápios
-      </Text>
+    <View style={{ flex: 1, backgroundColor: cores.branco }}>
+      <CabecalhoInstitucional subtitulo="Gerenciar Cardápios (Admin)" />
 
-      {/* FORMULÁRIO DE ATRIBUIÇÃO */}
-      <View
-        style={{
-          backgroundColor: "#E3F2FD",
-          padding: 16,
-          borderRadius: 12,
-          gap: 12,
-        }}
-      >
-        <Text style={{ fontSize: 18, fontWeight: "600" }}>
-          Atribuir Cardápio a um Dia
-        </Text>
+      <ScrollView contentContainerStyle={{ padding: 20, gap: 16 }}>
+        {/* FORMULÁRIO DE ATRIBUIÇÃO */}
+        <View
+          style={{
+            backgroundColor: cores.verdeClaro,
+            padding: 16,
+            borderRadius: 12,
+            gap: 12,
+          }}
+        >
+          <Text style={{ fontSize: 18, fontWeight: "600" }}>
+            Atribuir Cardápio a um Dia
+          </Text>
 
-        <TextInput
-          placeholder="Data (AAAA-MM-DD)"
-          value={dia}
-          onChangeText={setDia}
-          style={inputStyle}
-        />
+          <TextInput
+            placeholder="Data (AAAA-MM-DD)"
+            value={dia}
+            onChangeText={setDia}
+            style={inputStyle}
+          />
 
-        {/* TOGGLE: existente vs novo */}
-        <View style={{ flexDirection: "row", gap: 10 }}>
+          {/* TOGGLE: existente vs novo */}
+          <View style={{ flexDirection: "row", gap: 10 }}>
+            <TouchableOpacity
+              onPress={() => setModo("existente")}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 8,
+                backgroundColor:
+                  modo === "existente" ? cores.verdeEscuro : cores.branco,
+                borderWidth: 1,
+                borderColor: cores.verdeEscuro,
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color:
+                    modo === "existente" ? cores.branco : cores.verdeEscuro,
+                }}
+              >
+                Reutilizar existente
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={() => setModo("novo")}
+              style={{
+                flex: 1,
+                padding: 10,
+                borderRadius: 8,
+                backgroundColor:
+                  modo === "novo" ? cores.verdeEscuro : cores.branco,
+                borderWidth: 1,
+                borderColor: cores.verdeEscuro,
+                alignItems: "center",
+              }}
+            >
+              <Text
+                style={{
+                  color: modo === "novo" ? cores.branco : cores.verdeEscuro,
+                }}
+              >
+                Criar novo
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* MODO EXISTENTE: seletor de modelo salvo */}
+          {modo === "existente" && (
+            <TouchableOpacity
+              onPress={() => setModalModeloAberto(true)}
+              style={{
+                borderWidth: 1,
+                borderColor: cores.verdeMedio,
+                borderRadius: 8,
+                padding: 12,
+                backgroundColor: cores.branco,
+              }}
+            >
+              {modeloSelecionado ? (
+                <View>
+                  <Text style={{ fontWeight: "600" }}>
+                    {modeloSelecionado.tipo}
+                  </Text>
+                  <Text style={{ color: "#555", fontSize: 13 }}>
+                    {modeloSelecionado.itens.join(", ")}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={{ color: "#888" }}>
+                  Toque para escolher um cardápio salvo...
+                </Text>
+              )}
+            </TouchableOpacity>
+          )}
+
+          {/* MODO NOVO: campos de criação */}
+          {modo === "novo" && (
+            <>
+              <TextInput
+                placeholder="Tipo (ex: Almoço, Jantar)"
+                value={novoTipo}
+                onChangeText={setNovoTipo}
+                style={inputStyle}
+              />
+              <TextInput
+                placeholder="Itens separados por vírgula (ex: Arroz, Feijão, Frango)"
+                value={novosItensTexto}
+                onChangeText={setNovosItensTexto}
+                multiline
+                style={[
+                  inputStyle,
+                  { minHeight: 80, textAlignVertical: "top" },
+                ]}
+              />
+            </>
+          )}
+
           <TouchableOpacity
-            onPress={() => setModo("existente")}
+            onPress={atribuirCardapio}
+            disabled={loading}
             style={{
-              flex: 1,
-              padding: 10,
-              borderRadius: 8,
-              backgroundColor: modo === "existente" ? "#1565C0" : "#fff",
-              borderWidth: 1,
-              borderColor: "#1565C0",
+              backgroundColor: loading
+                ? cores.verdeMedio
+                : cores.verdePrincipal,
+              borderRadius: 10,
+              padding: 14,
               alignItems: "center",
             }}
           >
-            <Text style={{ color: modo === "existente" ? "#fff" : "#1565C0" }}>
-              Reutilizar existente
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            onPress={() => setModo("novo")}
-            style={{
-              flex: 1,
-              padding: 10,
-              borderRadius: 8,
-              backgroundColor: modo === "novo" ? "#1565C0" : "#fff",
-              borderWidth: 1,
-              borderColor: "#1565C0",
-              alignItems: "center",
-            }}
-          >
-            <Text style={{ color: modo === "novo" ? "#fff" : "#1565C0" }}>
-              Criar novo
+            <Text
+              style={{ color: cores.branco, fontWeight: "700", fontSize: 15 }}
+            >
+              {loading ? "Salvando..." : "Atribuir Cardápio"}
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* MODO EXISTENTE: seletor de modelo salvo */}
-        {modo === "existente" && (
+        {/* NAVEGAÇÃO DE ANO E SEMANA */}
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: "600",
+            marginTop: 8,
+            color: cores.cinzaTexto,
+          }}
+        >
+          Cardápios Cadastrados
+        </Text>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            justifyContent: "space-between",
+            backgroundColor: cores.cinzaClaro,
+            borderRadius: 10,
+            padding: 10,
+          }}
+        >
           <TouchableOpacity
-            onPress={() => setModalModeloAberto(true)}
+            onPress={() => irParaAno(ano - 1)}
+            style={{ padding: 6 }}
+          >
+            <Text style={{ fontSize: 16, color: cores.cinzaTexto }}>◀</Text>
+          </TouchableOpacity>
+          <Text
             style={{
-              borderWidth: 1,
-              borderColor: "#90CAF9",
-              borderRadius: 8,
-              padding: 12,
-              backgroundColor: "#fff",
+              fontSize: 16,
+              fontWeight: "bold",
+              color: cores.cinzaTexto,
             }}
           >
-            {modeloSelecionado ? (
-              <View>
-                <Text style={{ fontWeight: "600" }}>
-                  {modeloSelecionado.tipo}
-                </Text>
-                <Text style={{ color: "#555", fontSize: 13 }}>
-                  {modeloSelecionado.itens.join(", ")}
-                </Text>
-              </View>
-            ) : (
-              <Text style={{ color: "#888" }}>
-                Toque para escolher um cardápio salvo...
+            {ano}
+          </Text>
+          <TouchableOpacity
+            onPress={() => irParaAno(ano + 1)}
+            style={{ padding: 6 }}
+          >
+            <Text style={{ fontSize: 16, color: cores.cinzaTexto }}>▶</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          onPress={() => setModalSemanaAberto(true)}
+          style={{
+            borderWidth: 1,
+            borderColor: cores.cinzaBorda,
+            borderRadius: 10,
+            padding: 14,
+            flexDirection: "row",
+            justifyContent: "space-between",
+            alignItems: "center",
+            backgroundColor: cores.branco,
+          }}
+        >
+          <View>
+            <Text
+              style={{
+                fontWeight: "700",
+                fontSize: 16,
+                color: cores.cinzaTexto,
+              }}
+            >
+              Semana {numeroSemana}
+            </Text>
+            {diasDaSemana.length > 0 && (
+              <Text style={{ color: "#777", fontSize: 13 }}>
+                {formatarDataBR(diasDaSemana[0].iso)} a{" "}
+                {formatarDataBR(diasDaSemana[4].iso)}
               </Text>
             )}
+          </View>
+          <Text style={{ fontSize: 16, color: cores.cinzaTexto }}>▼</Text>
+        </TouchableOpacity>
+
+        {!ehSemanaAtual && (
+          <TouchableOpacity onPress={voltarParaHoje}>
+            <Text style={{ color: cores.verdeEscuro, fontWeight: "600" }}>
+              ↩ Voltar para semana atual
+            </Text>
           </TouchableOpacity>
         )}
 
-        {/* MODO NOVO: campos de criação */}
-        {modo === "novo" && (
-          <>
-            <TextInput
-              placeholder="Tipo (ex: Almoço, Jantar)"
-              value={novoTipo}
-              onChangeText={setNovoTipo}
-              style={inputStyle}
-            />
-            <TextInput
-              placeholder="Itens separados por vírgula (ex: Arroz, Feijão, Frango)"
-              value={novosItensTexto}
-              onChangeText={setNovosItensTexto}
-              multiline
-              style={[inputStyle, { minHeight: 80, textAlignVertical: "top" }]}
-            />
-          </>
+        {cardapiosDaSemana.length === 0 ? (
+          <Text style={{ color: "#888" }}>
+            Nenhum cardápio atribuído para esta semana.
+          </Text>
+        ) : (
+          cardapiosDaSemana.map((item, index) => (
+            <View
+              key={index}
+              style={{
+                backgroundColor: cores.cinzaClaro,
+                padding: 14,
+                borderRadius: 10,
+                gap: 4,
+              }}
+            >
+              <View
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                }}
+              >
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={{
+                      fontWeight: "bold",
+                      fontSize: 16,
+                      color: cores.cinzaTexto,
+                    }}
+                  >
+                    {formatarDataBR(item.dia)}
+                  </Text>
+                  <Text style={{ color: "#555", marginBottom: 4 }}>
+                    {item.tipo}
+                  </Text>
+                  {item.itens.map((comida, i) => (
+                    <Text key={i} style={{ color: "#333" }}>
+                      • {comida}
+                    </Text>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  onPress={() => removerAtribuicao(item)}
+                  style={{
+                    backgroundColor: cores.erroFundo,
+                    padding: 8,
+                    borderRadius: 8,
+                  }}
+                >
+                  <Text style={{ color: cores.erro, fontWeight: "bold" }}>
+                    🗑️
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
         )}
 
-        <Button
-          title={loading ? "Salvando..." : "Atribuir Cardápio"}
-          onPress={atribuirCardapio}
-          disabled={loading}
-          color="#1565C0"
-        />
-      </View>
-
-      {/* NAVEGAÇÃO DE ANO E SEMANA */}
-      <Text style={{ fontSize: 18, fontWeight: "600", marginTop: 8 }}>
-        Cardápios Cadastrados
-      </Text>
-
-      <View
-        style={{
-          flexDirection: "row",
-          alignItems: "center",
-          justifyContent: "space-between",
-          backgroundColor: "#F5F5F5",
-          borderRadius: 10,
-          padding: 10,
-        }}
-      >
-        <TouchableOpacity
-          onPress={() => irParaAno(ano - 1)}
-          style={{ padding: 6 }}
+        {/* MODAL: ESCOLHER MODELO EXISTENTE */}
+        <Modal
+          visible={modalModeloAberto}
+          animationType="slide"
+          onRequestClose={() => setModalModeloAberto(false)}
         >
-          <Text style={{ fontSize: 16 }}>◀</Text>
-        </TouchableOpacity>
-        <Text style={{ fontSize: 16, fontWeight: "bold" }}>{ano}</Text>
-        <TouchableOpacity
-          onPress={() => irParaAno(ano + 1)}
-          style={{ padding: 6 }}
-        >
-          <Text style={{ fontSize: 16 }}>▶</Text>
-        </TouchableOpacity>
-      </View>
-
-      <TouchableOpacity
-        onPress={() => setModalSemanaAberto(true)}
-        style={{
-          borderWidth: 1,
-          borderColor: "#BDBDBD",
-          borderRadius: 10,
-          padding: 14,
-          flexDirection: "row",
-          justifyContent: "space-between",
-          alignItems: "center",
-          backgroundColor: "#fff",
-        }}
-      >
-        <View>
-          <Text style={{ fontWeight: "700", fontSize: 16 }}>
-            Semana {numeroSemana}
-          </Text>
-          {diasDaSemana.length > 0 && (
-            <Text style={{ color: "#777", fontSize: 13 }}>
-              {formatarDataBR(diasDaSemana[0].iso)} a{" "}
-              {formatarDataBR(diasDaSemana[4].iso)}
-            </Text>
-          )}
-        </View>
-        <Text style={{ fontSize: 16 }}>▼</Text>
-      </TouchableOpacity>
-
-      {!ehSemanaAtual && (
-        <TouchableOpacity onPress={voltarParaHoje}>
-          <Text style={{ color: "#2E7D32", fontWeight: "600" }}>
-            ↩ Voltar para semana atual
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {cardapiosDaSemana.length === 0 ? (
-        <Text style={{ color: "#888" }}>
-          Nenhum cardápio atribuído para esta semana.
-        </Text>
-      ) : (
-        cardapiosDaSemana.map((item, index) => (
-          <View
-            key={index}
-            style={{
-              backgroundColor: "#F5F5F5",
-              padding: 14,
-              borderRadius: 10,
-              gap: 4,
-            }}
-          >
+          <View style={{ flex: 1, paddingTop: 50 }}>
             <View
               style={{
                 flexDirection: "row",
                 justifyContent: "space-between",
                 alignItems: "center",
+                paddingHorizontal: 20,
+                paddingBottom: 12,
               }}
             >
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontWeight: "bold", fontSize: 16 }}>
-                  {formatarDataBR(item.dia)}
+              <Text style={{ fontSize: 20, fontWeight: "bold" }}>
+                Cardápios Salvos
+              </Text>
+              <TouchableOpacity onPress={() => setModalModeloAberto(false)}>
+                <Text style={{ fontSize: 16, color: cores.verdeEscuro }}>
+                  Fechar
                 </Text>
-                <Text style={{ color: "#555", marginBottom: 4 }}>
-                  {item.tipo}
-                </Text>
-                {item.itens.map((comida, i) => (
-                  <Text key={i} style={{ color: "#333" }}>
-                    • {comida}
-                  </Text>
-                ))}
-              </View>
-
-              <TouchableOpacity
-                onPress={() => removerAtribuicao(item)}
-                style={{
-                  backgroundColor: "#FFCDD2",
-                  padding: 8,
-                  borderRadius: 8,
-                }}
-              >
-                <Text style={{ color: "#C62828", fontWeight: "bold" }}>🗑️</Text>
               </TouchableOpacity>
             </View>
-          </View>
-        ))
-      )}
 
-      {/* MODAL: ESCOLHER MODELO EXISTENTE */}
-      <Modal
-        visible={modalModeloAberto}
-        animationType="slide"
-        onRequestClose={() => setModalModeloAberto(false)}
-      >
-        <View style={{ flex: 1, paddingTop: 50 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingHorizontal: 20,
-              paddingBottom: 12,
-            }}
-          >
-            <Text style={{ fontSize: 20, fontWeight: "bold" }}>
-              Cardápios Salvos
-            </Text>
-            <TouchableOpacity onPress={() => setModalModeloAberto(false)}>
-              <Text style={{ fontSize: 16, color: "#1565C0" }}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 8 }}>
-            {modelos.length === 0 ? (
-              <Text style={{ color: "#888" }}>
-                Nenhum cardápio salvo ainda. Crie um novo para começar.
-              </Text>
-            ) : (
-              // Agrupa visualmente por tipo (Almoço, Jantar, ...)
-              Object.entries(
-                modelos.reduce<Record<string, Modelo[]>>((grupos, m) => {
-                  if (!grupos[m.tipo]) grupos[m.tipo] = [];
-                  grupos[m.tipo].push(m);
-                  return grupos;
-                }, {}),
-              ).map(([tipo, lista]) => (
-                <View key={tipo} style={{ gap: 8, marginBottom: 12 }}>
-                  <Text
-                    style={{
-                      fontWeight: "700",
-                      fontSize: 15,
-                      color: "#1565C0",
-                    }}
-                  >
-                    {tipo}
-                  </Text>
-                  {lista.map((m) => {
-                    const selecionado = m.id === modeloSelecionadoId;
-                    return (
-                      <TouchableOpacity
-                        key={m.id}
-                        onPress={() => {
-                          setModeloSelecionadoId(m.id);
-                          setModalModeloAberto(false);
-                        }}
-                        style={{
-                          padding: 12,
-                          borderRadius: 8,
-                          backgroundColor: selecionado ? "#1565C0" : "#F5F5F5",
-                        }}
-                      >
-                        <Text
-                          style={{
-                            color: selecionado ? "#fff" : "#333",
-                            fontSize: 13,
-                          }}
-                        >
-                          {m.itens.join(", ")}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ))
-            )}
-          </ScrollView>
-        </View>
-      </Modal>
-
-      {/* MODAL: TODAS AS SEMANAS DO ANO */}
-      <Modal
-        visible={modalSemanaAberto}
-        animationType="slide"
-        onRequestClose={() => setModalSemanaAberto(false)}
-      >
-        <View style={{ flex: 1, paddingTop: 50 }}>
-          <View
-            style={{
-              flexDirection: "row",
-              justifyContent: "space-between",
-              alignItems: "center",
-              paddingHorizontal: 20,
-              paddingBottom: 12,
-            }}
-          >
-            <Text style={{ fontSize: 20, fontWeight: "bold" }}>
-              Semanas de {ano}
-            </Text>
-            <TouchableOpacity onPress={() => setModalSemanaAberto(false)}>
-              <Text style={{ fontSize: 16, color: "#1565C0" }}>Fechar</Text>
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView contentContainerStyle={{ padding: 20, gap: 8 }}>
-            {semanasDoAno.map((s) => {
-              const dias = gerarDiasUteis(s.segunda);
-              const selecionada = s.numero === numeroSemana;
-              const atual =
-                ano === padrao.ano && s.numero === padrao.numeroSemana;
-
-              return (
-                <TouchableOpacity
-                  key={s.numero}
-                  onPress={() => {
-                    setNumeroSemana(s.numero);
-                    setModalSemanaAberto(false);
-                  }}
-                  style={{
-                    padding: 14,
-                    borderRadius: 10,
-                    backgroundColor: selecionada ? "#1565C0" : "#F5F5F5",
-                    flexDirection: "row",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <View>
+            <ScrollView contentContainerStyle={{ padding: 20, gap: 8 }}>
+              {modelos.length === 0 ? (
+                <Text style={{ color: "#888" }}>
+                  Nenhum cardápio salvo ainda. Crie um novo para começar.
+                </Text>
+              ) : (
+                // Agrupa visualmente por tipo (Almoço, Jantar, ...)
+                Object.entries(
+                  modelos.reduce<Record<string, Modelo[]>>((grupos, m) => {
+                    if (!grupos[m.tipo]) grupos[m.tipo] = [];
+                    grupos[m.tipo].push(m);
+                    return grupos;
+                  }, {}),
+                ).map(([tipo, lista]) => (
+                  <View key={tipo} style={{ gap: 8, marginBottom: 12 }}>
                     <Text
                       style={{
                         fontWeight: "700",
-                        color: selecionada ? "#fff" : "#333",
+                        fontSize: 15,
+                        color: cores.verdeEscuro,
                       }}
                     >
-                      Semana {s.numero} {atual && "• Atual"}
+                      {tipo}
                     </Text>
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        color: selecionada ? "#E3F2FD" : "#777",
-                      }}
-                    >
-                      {formatarDataBR(dias[0].iso)} a{" "}
-                      {formatarDataBR(dias[4].iso)}
-                    </Text>
+                    {lista.map((m) => {
+                      const selecionado = m.id === modeloSelecionadoId;
+                      return (
+                        <TouchableOpacity
+                          key={m.id}
+                          onPress={() => {
+                            setModeloSelecionadoId(m.id);
+                            setModalModeloAberto(false);
+                          }}
+                          style={{
+                            padding: 12,
+                            borderRadius: 8,
+                            backgroundColor: selecionado
+                              ? cores.verdeEscuro
+                              : cores.cinzaClaro,
+                          }}
+                        >
+                          <Text
+                            style={{
+                              color: selecionado ? cores.branco : "#333",
+                              fontSize: 13,
+                            }}
+                          >
+                            {m.itens.join(", ")}
+                          </Text>
+                        </TouchableOpacity>
+                      );
+                    })}
                   </View>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </View>
-      </Modal>
-    </ScrollView>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </Modal>
+
+        {/* MODAL: TODAS AS SEMANAS DO ANO */}
+        <Modal
+          visible={modalSemanaAberto}
+          animationType="slide"
+          onRequestClose={() => setModalSemanaAberto(false)}
+        >
+          <View style={{ flex: 1, paddingTop: 50 }}>
+            <View
+              style={{
+                flexDirection: "row",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingHorizontal: 20,
+                paddingBottom: 12,
+              }}
+            >
+              <Text style={{ fontSize: 20, fontWeight: "bold" }}>
+                Semanas de {ano}
+              </Text>
+              <TouchableOpacity onPress={() => setModalSemanaAberto(false)}>
+                <Text style={{ fontSize: 16, color: cores.verdeEscuro }}>
+                  Fechar
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView contentContainerStyle={{ padding: 20, gap: 8 }}>
+              {semanasDoAno.map((s) => {
+                const dias = gerarDiasUteis(s.segunda);
+                const selecionada = s.numero === numeroSemana;
+                const atual =
+                  ano === padrao.ano && s.numero === padrao.numeroSemana;
+
+                return (
+                  <TouchableOpacity
+                    key={s.numero}
+                    onPress={() => {
+                      setNumeroSemana(s.numero);
+                      setModalSemanaAberto(false);
+                    }}
+                    style={{
+                      padding: 14,
+                      borderRadius: 10,
+                      backgroundColor: selecionada
+                        ? cores.verdeEscuro
+                        : cores.cinzaClaro,
+                      flexDirection: "row",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <View>
+                      <Text
+                        style={{
+                          fontWeight: "700",
+                          color: selecionada ? cores.branco : "#333",
+                        }}
+                      >
+                        Semana {s.numero} {atual && "• Atual"}
+                      </Text>
+                      <Text
+                        style={{
+                          fontSize: 13,
+                          color: selecionada ? cores.verdeClaro : "#777",
+                        }}
+                      >
+                        {formatarDataBR(dias[0].iso)} a{" "}
+                        {formatarDataBR(dias[4].iso)}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </Modal>
+      </ScrollView>
+    </View>
   );
 }
 
 const inputStyle = {
   borderWidth: 1,
-  borderColor: "#BBDEFB",
+  borderColor: cores.verdeMedio,
   borderRadius: 8,
   padding: 10,
-  backgroundColor: "#fff",
+  backgroundColor: cores.branco,
   fontSize: 15,
 };
